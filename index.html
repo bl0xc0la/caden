@@ -129,94 +129,34 @@ say name
 </div>
 
 <script>
-/* ---------------- Caden Engine ---------------- */
-class Caden {
-    constructor() {
-        this.vars = {};
-        this.output = "";
-    }
+function scanCode(code) {
+    const blocked = [
+        /18\+/i,
+        /adult\s+site/i,
+        /nsfw/i,
+        /porn/i,
+        /explicit/i
+    ];
 
-    log(t) {
-        this.output += t + "\n";
-    }
+    const warnings = [
+        /sexual/i,
+        /violence/i
+    ];
 
-    parse(v) {
-        v = v.trim();
-
-        if (!isNaN(v)) return Number(v);
-        if (v.startsWith('"')) return v.replaceAll('"','');
-        return this.vars[v] ?? v;
-    }
-
-    runLine(line) {
-        line = line.trim();
-        if (!line) return;
-
-        const parts = line.split(" ");
-
-        if (parts[0] === "set") {
-            this.vars[parts[1]] = this.parse(line.split("to")[1]);
-            return;
+    for (let r of blocked) {
+        if (r.test(code)) {
+            return { status: "block", msg: "Blocked unsafe content detected" };
         }
-
-        if (parts[0] === "say") {
-            this.log(this.parse(line.slice(4)));
-            return;
-        }
-
-        if (parts[0] === "ask") {
-            const q = line.split("ask")[1].split("into")[0];
-            const name = parts[parts.length - 1];
-            this.vars[name] = prompt(q);
-            return;
-        }
-
-        this.log("Error: " + line);
     }
 
-    run(code) {
-        this.output = "";
-        code.split("\n").forEach(l => this.runLine(l));
-        return this.output;
+    for (let r of warnings) {
+        if (r.test(code)) {
+            return { status: "warn", msg: "Warning: sensitive content detected" };
+        }
     }
+
+    return { status: "ok" };
 }
-
-/* ---------------- FILE SYSTEM ---------------- */
-const files = {
-    main: `set name to "Caden"
-say "Welcome to Caden!"
-say name`,
-
-    guess: `set secret to 5
-say "Guess a number"
-ask "Your guess?" into g
-say g`
-};
-
-let currentFile = "main";
-const editor = document.getElementById("code");
-const out = document.getElementById("out");
-
-function openFile(name) {
-    currentFile = name;
-    editor.value = files[name];
-
-    document.querySelectorAll(".file").forEach(f => f.classList.remove("active"));
-    event.target.classList.add("active");
-}
-
-function run() {
-    const c = new Caden();
-    out.textContent = c.run(editor.value);
-}
-
-function reset() {
-    editor.value = files[currentFile];
-    out.textContent = "";
-}
-
-/* INIT */
-editor.value = files.main;
 </script>
 
 </body>
