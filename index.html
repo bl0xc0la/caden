@@ -4,99 +4,147 @@
 <meta charset="UTF-8">
 <title>Caden Playground</title>
 <style>
-    body {
-        margin: 0;
-        font-family: monospace;
-        background: #0b0e14;
-        color: white;
-        display: flex;
-        height: 100vh;
-    }
+body {
+    margin: 0;
+    font-family: monospace;
+    background: #0b0e14;
+    color: white;
+    display: flex;
+    height: 100vh;
+}
 
-    .left {
-        width: 50%;
-        display: flex;
-        flex-direction: column;
-        border-right: 1px solid #333;
-    }
+/* FILE PANEL */
+.sidebar {
+    width: 220px;
+    background: #111827;
+    border-right: 1px solid #333;
+    display: flex;
+    flex-direction: column;
+}
 
-    textarea {
-        flex: 1;
-        background: #0d1117;
-        color: #00ff88;
-        border: none;
-        padding: 15px;
-        font-size: 14px;
-        outline: none;
-        resize: none;
-    }
+.file {
+    padding: 10px;
+    cursor: pointer;
+    border-bottom: 1px solid #222;
+}
 
-    button {
-        background: #00ff88;
-        border: none;
-        padding: 12px;
-        cursor: pointer;
-        font-weight: bold;
-    }
+.file:hover {
+    background: #1f2937;
+}
 
-    .right {
-        width: 50%;
-        display: flex;
-        flex-direction: column;
-    }
+.file.active {
+    background: #00ff88;
+    color: black;
+    font-weight: bold;
+}
 
-    .output {
-        flex: 1;
-        padding: 15px;
-        white-space: pre-wrap;
-        overflow-y: auto;
-    }
+/* EDITOR */
+.editor {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
 
-    .title {
-        padding: 10px;
-        background: #161b22;
-        border-bottom: 1px solid #333;
-    }
+textarea {
+    flex: 1;
+    background: #0d1117;
+    color: #00ff88;
+    border: none;
+    padding: 15px;
+    font-size: 14px;
+    outline: none;
+}
+
+/* OUTPUT */
+.output {
+    height: 150px;
+    background: #0a0f1a;
+    border-top: 1px solid #333;
+    padding: 10px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+}
+
+/* TOP BAR */
+.topbar {
+    display: flex;
+    background: #161b22;
+    padding: 10px;
+    gap: 10px;
+}
+
+button {
+    background: #00ff88;
+    border: none;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+/* TIPS */
+.tips {
+    width: 260px;
+    background: #0f172a;
+    border-left: 1px solid #333;
+    padding: 15px;
+    font-size: 13px;
+    color: #cbd5e1;
+}
 </style>
 </head>
 <body>
 
-<div class="left">
-    <textarea id="code">
-set name to "Caden"
-say "Hello"
-say name
-ask "What is your age?" into age
-say age
-    </textarea>
-    <button onclick="runCaden()">Run Caden</button>
+<!-- FILE LIST -->
+<div class="sidebar">
+    <div class="file active" onclick="openFile('main')">main.cdn</div>
+    <div class="file" onclick="openFile('guess')">guess.cdn</div>
 </div>
 
-<div class="right">
-    <div class="title">Output</div>
-    <div class="output" id="output"></div>
+<!-- EDITOR -->
+<div class="editor">
+    <div class="topbar">
+        <button onclick="run()">Run</button>
+        <button onclick="reset()">Reset</button>
+    </div>
+
+    <textarea id="code"></textarea>
+    <div class="output" id="out"></div>
+</div>
+
+<!-- TIPS -->
+<div class="tips">
+    <h3>💡 Tips</h3>
+    <ul>
+        <li>Use <b>set x to 5</b> to create variables</li>
+        <li>Use <b>say x</b> to print values</li>
+        <li>Use <b>ask "?" into name</b> for input</li>
+        <li>Use <b>if x is 5:</b> for conditions</li>
+    </ul>
+
+    <h3>📘 Example</h3>
+    <pre>
+set name to "Caden"
+say name
+    </pre>
 </div>
 
 <script>
-class Interpreter {
+/* ---------------- Caden Engine ---------------- */
+class Caden {
     constructor() {
         this.vars = {};
         this.output = "";
     }
 
-    log(text) {
-        this.output += text + "\n";
+    log(t) {
+        this.output += t + "\n";
     }
 
-    parseValue(v) {
+    parse(v) {
         v = v.trim();
 
-        if (v.startsWith('"') && v.endsWith('"')) {
-            return v.slice(1, -1);
-        }
-
         if (!isNaN(v)) return Number(v);
-
+        if (v.startsWith('"')) return v.replaceAll('"','');
         return this.vars[v] ?? v;
     }
 
@@ -104,30 +152,22 @@ class Interpreter {
         line = line.trim();
         if (!line) return;
 
-        const tokens = line.split(" ");
+        const parts = line.split(" ");
 
-        // SET
-        if (tokens[0] === "set") {
-            const name = tokens[1];
-            const value = line.split("to")[1].trim();
-            this.vars[name] = this.parseValue(value);
+        if (parts[0] === "set") {
+            this.vars[parts[1]] = this.parse(line.split("to")[1]);
             return;
         }
 
-        // SAY
-        if (tokens[0] === "say") {
-            const value = this.parseValue(line.slice(4));
-            this.log(value);
+        if (parts[0] === "say") {
+            this.log(this.parse(line.slice(4)));
             return;
         }
 
-        // ASK
-        if (tokens[0] === "ask") {
-            const question = line.split("ask")[1].split("into")[0].trim();
-            const varName = tokens[tokens.length - 1];
-
-            const answer = prompt(question);
-            this.vars[varName] = answer;
+        if (parts[0] === "ask") {
+            const q = line.split("ask")[1].split("into")[0];
+            const name = parts[parts.length - 1];
+            this.vars[name] = prompt(q);
             return;
         }
 
@@ -136,23 +176,47 @@ class Interpreter {
 
     run(code) {
         this.output = "";
-        const lines = code.split("\n");
-
-        for (let line of lines) {
-            this.runLine(line);
-        }
-
+        code.split("\n").forEach(l => this.runLine(l));
         return this.output;
     }
 }
 
-function runCaden() {
-    const code = document.getElementById("code").value;
-    const interpreter = new Interpreter();
-    const output = interpreter.run(code);
+/* ---------------- FILE SYSTEM ---------------- */
+const files = {
+    main: `set name to "Caden"
+say "Welcome to Caden!"
+say name`,
 
-    document.getElementById("output").textContent = output;
+    guess: `set secret to 5
+say "Guess a number"
+ask "Your guess?" into g
+say g`
+};
+
+let currentFile = "main";
+const editor = document.getElementById("code");
+const out = document.getElementById("out");
+
+function openFile(name) {
+    currentFile = name;
+    editor.value = files[name];
+
+    document.querySelectorAll(".file").forEach(f => f.classList.remove("active"));
+    event.target.classList.add("active");
 }
+
+function run() {
+    const c = new Caden();
+    out.textContent = c.run(editor.value);
+}
+
+function reset() {
+    editor.value = files[currentFile];
+    out.textContent = "";
+}
+
+/* INIT */
+editor.value = files.main;
 </script>
 
 </body>
