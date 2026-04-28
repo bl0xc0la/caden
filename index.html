@@ -2,49 +2,85 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Caden Playground</title>
+<title>Caden Playground Pro</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <style>
+:root {
+    --bg: #0b0e14;
+    --panel: #111827;
+    --accent: #00ff88;
+    --text: #e6edf3;
+}
+
+/* Layout */
 body {
     margin: 0;
-    font-family: monospace;
-    background: #0b0e14;
-    color: white;
+    font-family: system-ui, monospace;
+    background: radial-gradient(circle at top, #111827, #0b0e14);
+    color: var(--text);
     display: flex;
     height: 100vh;
 }
 
-/* FILE PANEL */
+/* Sidebar */
 .sidebar {
     width: 220px;
-    background: #111827;
-    border-right: 1px solid #333;
-    display: flex;
-    flex-direction: column;
+    background: linear-gradient(180deg, #111827, #0b0e14);
+    border-right: 1px solid #222;
+    padding: 10px;
 }
 
 .file {
-    padding: 10px;
+    padding: 12px;
+    margin-bottom: 6px;
+    border-radius: 8px;
     cursor: pointer;
-    border-bottom: 1px solid #222;
+    transition: 0.2s;
 }
 
 .file:hover {
-    background: #1f2937;
+    background: rgba(0,255,136,0.1);
 }
 
 .file.active {
-    background: #00ff88;
+    background: var(--accent);
     color: black;
     font-weight: bold;
 }
 
-/* EDITOR */
+/* Editor */
 .editor {
     flex: 1;
     display: flex;
     flex-direction: column;
 }
 
+.topbar {
+    padding: 10px;
+    background: #161b22;
+    display: flex;
+    gap: 10px;
+    border-bottom: 1px solid #222;
+}
+
+/* Buttons */
+button {
+    background: linear-gradient(135deg, #00ff88, #00c46a);
+    border: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0 4px 12px rgba(0,255,136,0.3);
+    transition: 0.2s;
+}
+
+button:hover {
+    transform: scale(1.05);
+}
+
+/* Code area */
 textarea {
     flex: 1;
     background: #0d1117;
@@ -55,49 +91,37 @@ textarea {
     outline: none;
 }
 
-/* OUTPUT */
+/* Output */
 .output {
     height: 150px;
-    background: #0a0f1a;
-    border-top: 1px solid #333;
+    background: #010409;
+    border-top: 1px solid #222;
     padding: 10px;
     overflow-y: auto;
-    white-space: pre-wrap;
+    border-radius: 12px 12px 0 0;
 }
 
-/* TOP BAR */
-.topbar {
-    display: flex;
-    background: #161b22;
-    padding: 10px;
-    gap: 10px;
-}
-
-button {
-    background: #00ff88;
-    border: none;
-    padding: 8px 12px;
-    cursor: pointer;
-    font-weight: bold;
-}
-
-/* TIPS */
+/* Tips panel */
 .tips {
     width: 260px;
-    background: #0f172a;
-    border-left: 1px solid #333;
+    background: linear-gradient(180deg, #0f172a, #020617);
+    border-left: 1px solid #222;
     padding: 15px;
     font-size: 13px;
-    color: #cbd5e1;
+}
+
+.tips h3 {
+    color: var(--accent);
 }
 </style>
 </head>
+
 <body>
 
-<!-- FILE LIST -->
+<!-- FILES -->
 <div class="sidebar">
-    <div class="file active" onclick="openFile('main')">main.cdn</div>
-    <div class="file" onclick="openFile('guess')">guess.cdn</div>
+    <div class="file active" onclick="openFile('main', this)">main.cdn</div>
+    <div class="file" onclick="openFile('guess', this)">guess.cdn</div>
 </div>
 
 <!-- EDITOR -->
@@ -113,50 +137,147 @@ button {
 
 <!-- TIPS -->
 <div class="tips">
-    <h3>💡 Tips</h3>
+    <h3>Tips</h3>
     <ul>
-        <li>Use <b>set x to 5</b> to create variables</li>
-        <li>Use <b>say x</b> to print values</li>
-        <li>Use <b>ask "?" into name</b> for input</li>
-        <li>Use <b>if x is 5:</b> for conditions</li>
+        <li>set x to 5</li>
+        <li>say x</li>
+        <li>ask "?" into name</li>
+        <li>if x is 5</li>
     </ul>
-
-    <h3>📘 Example</h3>
-    <pre>
-set name to "Caden"
-say name
-    </pre>
 </div>
 
 <script>
+/* ---------------- FILE SYSTEM ---------------- */
+const files = {
+    main: `set name to "Caden"
+say "Welcome!"
+say name`,
+
+    guess: `set secret to 5
+say "Guess a number"
+ask "Your guess?" into g
+say g`
+};
+
+let currentFile = "main";
+const editor = document.getElementById("code");
+const out = document.getElementById("out");
+
+/* ---------------- FIXED TAB SWITCH ---------------- */
+function openFile(name, el) {
+    currentFile = name;
+    editor.value = files[name];
+
+    document.querySelectorAll(".file").forEach(f => f.classList.remove("active"));
+    el.classList.add("active");
+}
+
+/* ---------------- SAFETY FILTER ---------------- */
 function scanCode(code) {
-    const blocked = [
-        /18\+/i,
-        /adult\s+site/i,
-        /nsfw/i,
-        /porn/i,
-        /explicit/i
-    ];
-
-    const warnings = [
-        /sexual/i,
-        /violence/i
-    ];
-
+    const blocked = [/18\+/i, /nsfw/i, /porn/i];
     for (let r of blocked) {
         if (r.test(code)) {
-            return { status: "block", msg: "Blocked unsafe content detected" };
+            return { status: "block", msg: "Blocked unsafe content" };
         }
     }
-
-    for (let r of warnings) {
-        if (r.test(code)) {
-            return { status: "warn", msg: "Warning: sensitive content detected" };
-        }
-    }
-
     return { status: "ok" };
 }
+
+/* ---------------- CADEN ENGINE ---------------- */
+class Caden {
+    constructor() {
+        this.vars = {};
+        this.output = "";
+    }
+
+    log(t) {
+        this.output += t + "\n";
+    }
+
+    parse(v) {
+        v = v.trim();
+
+        if (!isNaN(v)) return Number(v);
+
+        if (v.startsWith('"') && v.endsWith('"')) {
+            return v.slice(1, -1);
+        }
+
+        return this.vars[v] ?? v;
+    }
+
+    run(code) {
+        this.output = "";
+        const lines = code.split("\n");
+
+        for (let i = 0; i < lines.length; i++) {
+            let line = lines[i].trim();
+            if (!line) continue;
+
+            let parts = line.split(" ");
+
+            if (parts[0] === "set") {
+                this.vars[parts[1]] = this.parse(line.split("to")[1]);
+                continue;
+            }
+
+            if (parts[0] === "say") {
+                this.log(this.parse(line.slice(4)));
+                continue;
+            }
+
+            if (parts[0] === "ask") {
+                const q = line.split("ask")[1].split("into")[0];
+                const name = parts[parts.length - 1];
+                this.vars[name] = prompt(q);
+                continue;
+            }
+
+            if (parts[0] === "if") {
+                const left = this.parse(parts[1]);
+                const right = this.parse(parts[3]);
+
+                if (left === right) {
+                    i++;
+                    let next = lines[i].trim();
+                    if (next.startsWith("say")) {
+                        this.log(this.parse(next.slice(4)));
+                    }
+                } else {
+                    i++;
+                }
+                continue;
+            }
+
+            this.log("Error: " + line);
+        }
+
+        return this.output;
+    }
+}
+
+/* ---------------- RUN ---------------- */
+function run() {
+    const code = editor.value;
+
+    const check = scanCode(code);
+    if (check.status === "block") {
+        out.textContent = "⛔ " + check.msg;
+        return;
+    }
+
+    const c = new Caden();
+    out.textContent = c.run(code);
+}
+
+/* ---------------- RESET ---------------- */
+function reset() {
+    editor.value = files[currentFile];
+    out.textContent = "";
+}
+
+/* INIT */
+editor.value = files.main;
 </script>
 
 </body>
