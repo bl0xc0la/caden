@@ -2,15 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Caden Playground</title>
+<title>Caden IDE</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
 :root {
-  --bg: #0b0e14;
-  --panel: #111826;
+  --bg: linear-gradient(135deg, #0b0e14, #0f172a);
+  --panel: rgba(20, 25, 40, 0.8);
+  --border: rgba(255,255,255,0.08);
   --accent: #00ff88;
-  --text: #fff;
+  --text: #e6edf3;
 }
 
 body {
@@ -20,24 +21,29 @@ body {
   font-family: system-ui;
   display: flex;
   height: 100vh;
+  overflow: hidden;
 }
 
 /* Sidebar */
 .sidebar {
-  width: 220px;
+  width: 240px;
   background: var(--panel);
+  backdrop-filter: blur(20px);
+  border-right: 1px solid var(--border);
   padding: 15px;
-  border-right: 1px solid #222;
+  box-shadow: 5px 0 30px rgba(0,0,0,0.4);
 }
 
 .file {
-  padding: 8px;
+  padding: 10px;
+  margin-bottom: 6px;
+  border-radius: 8px;
   cursor: pointer;
-  border-radius: 6px;
+  transition: 0.2s;
 }
 
 .file:hover {
-  background: #1c2433;
+  background: rgba(255,255,255,0.05);
 }
 
 /* Main */
@@ -47,24 +53,43 @@ body {
   flex-direction: column;
 }
 
-/* Top bar */
-.topbar {
+/* Tabs */
+.tabs {
+  display: flex;
   background: var(--panel);
-  padding: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  padding: 10px 15px;
+  cursor: pointer;
+  border-right: 1px solid var(--border);
+}
+
+.tab.active {
+  background: rgba(0,255,136,0.1);
+}
+
+/* Topbar */
+.topbar {
   display: flex;
   gap: 10px;
-  border-bottom: 1px solid #222;
+  padding: 10px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
 }
 
 button {
-  background: var(--accent);
+  background: linear-gradient(135deg, #00ff88, #00cfff);
   border: none;
   padding: 8px 14px;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
+  font-weight: bold;
+  box-shadow: 0 5px 15px rgba(0,255,136,0.2);
 }
 
-/* Editor + Output */
+/* Workspace */
 .workspace {
   flex: 1;
   display: flex;
@@ -81,78 +106,124 @@ textarea {
   outline: none;
 }
 
+/* Output */
 .output {
   width: 40%;
   background: #05080f;
+  border-left: 1px solid var(--border);
   padding: 10px;
-  border-left: 1px solid #222;
   overflow: auto;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
 }
 </style>
 </head>
 
 <body>
 
-<!-- Sidebar -->
 <div class="sidebar">
   <h3>Files</h3>
-  <div class="file" onclick="loadFile('main')">main.cdn</div>
+  <div id="fileList"></div>
   <div class="file" onclick="newFile()">+ New File</div>
 </div>
 
-<!-- Main -->
 <div class="main">
+
+  <div class="tabs" id="tabs"></div>
 
   <div class="topbar">
     <button onclick="runCode()">Run ▶</button>
-    <button onclick="saveFile()">Save 💾</button>
+    <button onclick="saveFiles()">Save</button>
+    <button onclick="publish()">Publish</button>
   </div>
 
   <div class="workspace">
     <textarea id="editor"></textarea>
-    <div class="output" id="output">Output will appear here...</div>
+    <div class="output" id="output">Output...</div>
   </div>
 
 </div>
 
 <script>
-let files = {
-  "main": `scene main
+let files = JSON.parse(localStorage.getItem("caden_files") || "{}");
 
-create.label title
-title.text = "Hello from Caden!"
+if (Object.keys(files).length === 0) {
+  files["main.cdn"] = `create.label title
+title.text = "Welcome to Caden IDE"`;
+}
 
-end`
-};
+let currentFile = Object.keys(files)[0];
 
-let currentFile = "main";
+/* ---------- UI ---------- */
+function renderFiles() {
+  const list = document.getElementById("fileList");
+  list.innerHTML = "";
+  Object.keys(files).forEach(name => {
+    let el = document.createElement("div");
+    el.className = "file";
+    el.innerText = name;
+    el.onclick = () => openFile(name);
+    list.appendChild(el);
+  });
+}
 
-function loadFile(name) {
+function renderTabs() {
+  const tabs = document.getElementById("tabs");
+  tabs.innerHTML = "";
+
+  Object.keys(files).forEach(name => {
+    let tab = document.createElement("div");
+    tab.className = "tab " + (name === currentFile ? "active" : "");
+    tab.innerText = name;
+    tab.onclick = () => openFile(name);
+    tabs.appendChild(tab);
+  });
+}
+
+function openFile(name) {
   currentFile = name;
   document.getElementById("editor").value = files[name];
+  renderTabs();
 }
 
 function newFile() {
-  const name = prompt("File name:");
+  let name = prompt("File name (example.cdn)");
   if (!name) return;
   files[name] = "";
-  loadFile(name);
+  openFile(name);
+  renderFiles();
 }
 
-function saveFile() {
+function saveFiles() {
   files[currentFile] = document.getElementById("editor").value;
-  alert("Saved!");
+  localStorage.setItem("caden_files", JSON.stringify(files));
+  alert("Saved");
 }
 
-/* SIMPLE INTERPRETER (browser version) */
+/* ---------- SHARE ---------- */
+function publish() {
+  saveFiles();
+  const data = btoa(JSON.stringify(files));
+  const url = location.origin + location.pathname + "?code=" + data;
+  prompt("Share this link:", url);
+}
+
+/* Load shared project */
+const params = new URLSearchParams(location.search);
+if (params.get("code")) {
+  files = JSON.parse(atob(params.get("code")));
+}
+
+/* ---------- RUN ---------- */
 function runCode() {
-  const code = document.getElementById("editor").value;
+  saveFiles();
   const output = document.getElementById("output");
   output.innerHTML = "";
 
   let vars = {};
 
-  code.split("\n").forEach(line => {
+  let code = files[currentFile].split("\n");
+
+  code.forEach(line => {
     line = line.trim();
 
     if (line.startsWith("create.label")) {
@@ -160,25 +231,28 @@ function runCode() {
       vars[name] = { type: "label", text: "" };
     }
 
-    else if (line.includes(".text")) {
-      let [left, right] = line.split("=");
-      let obj = left.split(".")[0].trim();
-      vars[obj].text = right.replace(/"/g, "").trim();
+    if (line.includes(".text")) {
+      let [l, r] = line.split("=");
+      let obj = l.split(".")[0].trim();
+      vars[obj].text = r.replace(/"/g, "").trim();
     }
   });
 
-  // render
   for (let k in vars) {
-    if (vars[k].type === "label") {
-      let el = document.createElement("div");
-      el.innerText = vars[k].text;
-      output.appendChild(el);
-    }
+    let el = document.createElement("div");
+    el.innerText = vars[k].text;
+    el.style.padding = "8px";
+    el.style.margin = "6px 0";
+    el.style.background = "rgba(0,255,136,0.1)";
+    el.style.borderRadius = "8px";
+    output.appendChild(el);
   }
 }
 
-// load default
-loadFile("main");
+/* Init */
+renderFiles();
+renderTabs();
+openFile(currentFile);
 </script>
 
 </body>
