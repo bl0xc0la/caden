@@ -24,14 +24,12 @@ body {
   overflow: hidden;
 }
 
-/* Sidebar */
 .sidebar {
   width: 240px;
   background: var(--panel);
   backdrop-filter: blur(20px);
   border-right: 1px solid var(--border);
   padding: 15px;
-  box-shadow: 5px 0 30px rgba(0,0,0,0.4);
 }
 
 .file {
@@ -39,38 +37,36 @@ body {
   margin-bottom: 6px;
   border-radius: 8px;
   cursor: pointer;
-  transition: 0.2s;
 }
 
 .file:hover {
   background: rgba(255,255,255,0.05);
 }
 
-/* Main */
 .main {
   flex: 1;
   display: flex;
   flex-direction: column;
 }
 
-/* Tabs */
 .tabs {
   display: flex;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
+  overflow-x: auto;
 }
 
 .tab {
   padding: 10px 15px;
   cursor: pointer;
   border-right: 1px solid var(--border);
+  white-space: nowrap;
 }
 
 .tab.active {
   background: rgba(0,255,136,0.1);
 }
 
-/* Topbar */
 .topbar {
   display: flex;
   gap: 10px;
@@ -86,10 +82,8 @@ button {
   border-radius: 8px;
   cursor: pointer;
   font-weight: bold;
-  box-shadow: 0 5px 15px rgba(0,255,136,0.2);
 }
 
-/* Workspace */
 .workspace {
   flex: 1;
   display: flex;
@@ -106,14 +100,12 @@ textarea {
   outline: none;
 }
 
-/* Output */
 .output {
   width: 40%;
   background: #05080f;
   border-left: 1px solid var(--border);
   padding: 10px;
   overflow: auto;
-  box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
 }
 </style>
 </head>
@@ -144,21 +136,43 @@ textarea {
 </div>
 
 <script>
+/* ---------- LOAD ---------- */
 let files = JSON.parse(localStorage.getItem("caden_files") || "{}");
 
-if (Object.keys(files).length === 0) {
-  files["main.cdn"] = `create.label title
-title.text = "Welcome to Caden IDE"`;
+const params = new URLSearchParams(location.search);
+if (params.get("code")) {
+  try {
+    files = JSON.parse(atob(params.get("code")));
+  } catch (e) {
+    files = { "main.cdn": "create.label title\ntitle.text = \"Broken import\"" };
+  }
 }
 
-let currentFile = Object.keys(files)[0];
+if (!files || Object.keys(files).length === 0) {
+  files = {
+    "main.cdn": `create.label title\ntitle.text = "Welcome to Caden IDE"`
+  };
+}
+
+let currentFile = Object.keys(files)[0] || null;
+
+/* ---------- SAFE EDITOR SYNC ---------- */
+function syncEditor() {
+  const ed = document.getElementById("editor");
+  if (currentFile && files[currentFile] !== undefined) {
+    ed.value = files[currentFile];
+  } else {
+    ed.value = "";
+  }
+}
 
 /* ---------- UI ---------- */
 function renderFiles() {
   const list = document.getElementById("fileList");
   list.innerHTML = "";
+
   Object.keys(files).forEach(name => {
-    let el = document.createElement("div");
+    const el = document.createElement("div");
     el.className = "file";
     el.innerText = name;
     el.onclick = () => openFile(name);
@@ -171,8 +185,8 @@ function renderTabs() {
   tabs.innerHTML = "";
 
   Object.keys(files).forEach(name => {
-    let tab = document.createElement("div");
-    tab.className = "tab " + (name === currentFile ? "active" : "");
+    const tab = document.createElement("div");
+    tab.className = "tab" + (name === currentFile ? " active" : "");
     tab.innerText = name;
     tab.onclick = () => openFile(name);
     tabs.appendChild(tab);
@@ -180,23 +194,31 @@ function renderTabs() {
 }
 
 function openFile(name) {
+  if (!files[name]) return;
+
   currentFile = name;
-  document.getElementById("editor").value = files[name];
+  syncEditor();
   renderTabs();
 }
 
 function newFile() {
-  let name = prompt("File name (example.cdn)");
+  const name = prompt("File name (example.cdn)");
   if (!name) return;
+
   files[name] = "";
-  openFile(name);
+  currentFile = name;
+
   renderFiles();
+  renderTabs();
+  syncEditor();
 }
 
+/* ---------- SAVE ---------- */
 function saveFiles() {
-  files[currentFile] = document.getElementById("editor").value;
+  if (currentFile) {
+    files[currentFile] = document.getElementById("editor").value;
+  }
   localStorage.setItem("caden_files", JSON.stringify(files));
-  alert("Saved");
 }
 
 /* ---------- SHARE ---------- */
@@ -207,52 +229,58 @@ function publish() {
   prompt("Share this link:", url);
 }
 
-/* Load shared project */
-const params = new URLSearchParams(location.search);
-if (params.get("code")) {
-  files = JSON.parse(atob(params.get("code")));
-}
-
-/* ---------- RUN ---------- */
+/* ---------- RUNNER ---------- */
 function runCode() {
   saveFiles();
+
   const output = document.getElementById("output");
   output.innerHTML = "";
 
-  let vars = {};
+  const vars = {};
+  const code = (files[currentFile] || "").split("\n");
 
-  let code = files[currentFile].split("\n");
-
-  code.forEach(line => {
-    line = line.trim();
+  for (let raw of code) {
+    let line = raw.trim();
+    if (!line) continue;
 
     if (line.startsWith("create.label")) {
-      let name = line.split(" ")[1];
-      vars[name] = { type: "label", text: "" };
+      const name = line.split(" ")[1];
+      if (name) vars[name] = { type: "label", text: "" };
     }
 
     if (line.includes(".text")) {
-      let [l, r] = line.split("=");
-      let obj = l.split(".")[0].trim();
+      const [l, r] = line.split("=");
+      if (!l || !r) continue;
+
+      const obj = l.split(".")[0].trim();
+      if (!vars[obj]) vars[obj] = { type: "label", text: "" };
+
       vars[obj].text = r.replace(/"/g, "").trim();
     }
-  });
+  }
 
-  for (let k in vars) {
-    let el = document.createElement("div");
-    el.innerText = vars[k].text;
+  Object.values(vars).forEach(v => {
+    const el = document.createElement("div");
+    el.innerText = v.text || "";
     el.style.padding = "8px";
     el.style.margin = "6px 0";
     el.style.background = "rgba(0,255,136,0.1)";
     el.style.borderRadius = "8px";
     output.appendChild(el);
-  }
+  });
 }
 
-/* Init */
+/* ---------- EDITOR LIVE SYNC ---------- */
+document.getElementById("editor").addEventListener("input", () => {
+  if (currentFile) {
+    files[currentFile] = document.getElementById("editor").value;
+  }
+});
+
+/* ---------- INIT ---------- */
 renderFiles();
 renderTabs();
-openFile(currentFile);
+syncEditor();
 </script>
 
 </body>
