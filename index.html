@@ -2,89 +2,90 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Caden IDE</title>
+<title>Caden Studio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-:root {
-  --bg: linear-gradient(135deg, #0b0e14, #0f172a);
-  --panel: rgba(20, 25, 40, 0.8);
-  --border: rgba(255,255,255,0.08);
-  --accent: #00ff88;
-  --text: #e6edf3;
-}
-
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: system-ui;
-  display: flex;
   height: 100vh;
-  overflow: hidden;
+  display: flex;
+  font-family: system-ui;
+  background: #0b0e14;
+  color: #e6edf3;
 }
 
+/* SIDEBAR */
 .sidebar {
   width: 240px;
-  background: var(--panel);
-  backdrop-filter: blur(20px);
-  border-right: 1px solid var(--border);
-  padding: 15px;
+  background: #111827;
+  border-right: 1px solid #1f2937;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar h3 {
+  padding: 10px;
+  margin: 0;
+  border-bottom: 1px solid #1f2937;
 }
 
 .file {
-  padding: 10px;
-  margin-bottom: 6px;
-  border-radius: 8px;
+  padding: 8px 10px;
   cursor: pointer;
 }
 
 .file:hover {
-  background: rgba(255,255,255,0.05);
+  background: #1f2937;
 }
 
+/* MAIN */
 .main {
   flex: 1;
   display: flex;
   flex-direction: column;
 }
 
+/* TOPBAR */
+.topbar {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  background: #111827;
+  border-bottom: 1px solid #1f2937;
+}
+
+button {
+  background: #22c55e;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* TABS */
 .tabs {
   display: flex;
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
+  background: #0f172a;
+  border-bottom: 1px solid #1f2937;
   overflow-x: auto;
 }
 
 .tab {
-  padding: 10px 15px;
+  padding: 8px 12px;
   cursor: pointer;
-  border-right: 1px solid var(--border);
+  border-right: 1px solid #1f2937;
   white-space: nowrap;
 }
 
 .tab.active {
-  background: rgba(0,255,136,0.1);
+  background: #1f2937;
 }
 
-.topbar {
-  display: flex;
-  gap: 10px;
-  padding: 10px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
-}
-
-button {
-  background: linear-gradient(135deg, #00ff88, #00cfff);
-  border: none;
-  padding: 8px 14px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-.workspace {
+/* EDITOR AREA */
+.content {
   flex: 1;
   display: flex;
 }
@@ -94,18 +95,39 @@ textarea {
   background: #0d1117;
   color: #fff;
   border: none;
-  padding: 15px;
+  padding: 12px;
   font-family: monospace;
-  font-size: 14px;
   outline: none;
 }
 
+/* OUTPUT */
 .output {
   width: 40%;
   background: #05080f;
-  border-left: 1px solid var(--border);
+  border-left: 1px solid #1f2937;
   padding: 10px;
   overflow: auto;
+}
+
+/* COMMAND PALETTE */
+#cmd {
+  position: absolute;
+  top: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 400px;
+  background: #111827;
+  border: 1px solid #374151;
+  display: none;
+  flex-direction: column;
+}
+
+#cmd input {
+  padding: 10px;
+  border: none;
+  outline: none;
+  background: #0b0e14;
+  color: white;
 }
 </style>
 </head>
@@ -113,174 +135,159 @@ textarea {
 <body>
 
 <div class="sidebar">
-  <h3>Files</h3>
-  <div id="fileList"></div>
-  <div class="file" onclick="newFile()">+ New File</div>
+  <h3>Explorer</h3>
+  <div id="files"></div>
 </div>
 
 <div class="main">
 
+  <div class="topbar">
+    <button onclick="run()">Run</button>
+    <button onclick="save()">Save</button>
+    <button onclick="newFile()">New</button>
+    <button onclick="toggleCmd()">Cmd</button>
+  </div>
+
   <div class="tabs" id="tabs"></div>
 
-  <div class="topbar">
-    <button onclick="runCode()">Run ▶</button>
-    <button onclick="saveFiles()">Save</button>
-    <button onclick="publish()">Publish</button>
-  </div>
-
-  <div class="workspace">
+  <div class="content">
     <textarea id="editor"></textarea>
-    <div class="output" id="output">Output...</div>
+    <div class="output" id="out">Output</div>
   </div>
+</div>
 
+<div id="cmd">
+  <input placeholder="Type command..." onkeydown="cmdEnter(event)">
 </div>
 
 <script>
-/* ---------- LOAD ---------- */
-let files = JSON.parse(localStorage.getItem("caden_files") || "{}");
+let files = JSON.parse(localStorage.getItem("caden") || "{}");
 
-const params = new URLSearchParams(location.search);
-if (params.get("code")) {
-  try {
-    files = JSON.parse(atob(params.get("code")));
-  } catch (e) {
-    files = { "main.cdn": "create.label title\ntitle.text = \"Broken import\"" };
-  }
+if (Object.keys(files).length === 0) {
+  files["main.cdn"] = `create.label title\ntitle.text = "Hello Caden Studio"`;
 }
 
-if (!files || Object.keys(files).length === 0) {
-  files = {
-    "main.cdn": `create.label title\ntitle.text = "Welcome to Caden IDE"`
-  };
-}
+let current = Object.keys(files)[0];
 
-let currentFile = Object.keys(files)[0] || null;
-
-/* ---------- SAFE EDITOR SYNC ---------- */
-function syncEditor() {
-  const ed = document.getElementById("editor");
-  if (currentFile && files[currentFile] !== undefined) {
-    ed.value = files[currentFile];
-  } else {
-    ed.value = "";
-  }
+/* ---------- SAFE LOAD ---------- */
+function sync() {
+  document.getElementById("editor").value = files[current] || "";
 }
 
 /* ---------- UI ---------- */
-function renderFiles() {
-  const list = document.getElementById("fileList");
-  list.innerHTML = "";
+function render() {
+  const f = document.getElementById("files");
+  const t = document.getElementById("tabs");
+
+  f.innerHTML = "";
+  t.innerHTML = "";
 
   Object.keys(files).forEach(name => {
-    const el = document.createElement("div");
-    el.className = "file";
-    el.innerText = name;
-    el.onclick = () => openFile(name);
-    list.appendChild(el);
-  });
-}
+    let d = document.createElement("div");
+    d.className = "file";
+    d.innerText = name;
+    d.onclick = () => open(name);
+    f.appendChild(d);
 
-function renderTabs() {
-  const tabs = document.getElementById("tabs");
-  tabs.innerHTML = "";
-
-  Object.keys(files).forEach(name => {
-    const tab = document.createElement("div");
-    tab.className = "tab" + (name === currentFile ? " active" : "");
+    let tab = document.createElement("div");
+    tab.className = "tab" + (name === current ? " active" : "");
     tab.innerText = name;
-    tab.onclick = () => openFile(name);
-    tabs.appendChild(tab);
+    tab.onclick = () => open(name);
+    t.appendChild(tab);
   });
 }
 
-function openFile(name) {
+function open(name) {
   if (!files[name]) return;
-
-  currentFile = name;
-  syncEditor();
-  renderTabs();
+  current = name;
+  sync();
+  render();
 }
 
+/* ---------- FILES ---------- */
 function newFile() {
-  const name = prompt("File name (example.cdn)");
-  if (!name) return;
-
-  files[name] = "";
-  currentFile = name;
-
-  renderFiles();
-  renderTabs();
-  syncEditor();
+  let n = prompt("File name");
+  if (!n) return;
+  files[n] = "";
+  current = n;
+  render();
+  sync();
 }
 
-/* ---------- SAVE ---------- */
-function saveFiles() {
-  if (currentFile) {
-    files[currentFile] = document.getElementById("editor").value;
-  }
-  localStorage.setItem("caden_files", JSON.stringify(files));
+function save() {
+  files[current] = document.getElementById("editor").value;
+  localStorage.setItem("caden", JSON.stringify(files));
 }
 
-/* ---------- SHARE ---------- */
-function publish() {
-  saveFiles();
-  const data = btoa(JSON.stringify(files));
-  const url = location.origin + location.pathname + "?code=" + data;
-  prompt("Share this link:", url);
-}
+/* ---------- RUN ENGINE (FIXED) ---------- */
+function run() {
+  save();
 
-/* ---------- RUNNER ---------- */
-function runCode() {
-  saveFiles();
+  const out = document.getElementById("out");
+  out.innerHTML = "";
 
-  const output = document.getElementById("output");
-  output.innerHTML = "";
+  if (!current || !files[current]) return;
 
-  const vars = {};
-  const code = (files[currentFile] || "").split("\n");
+  const lines = (files[current] || "").split("\n");
+  let vars = {};
 
-  for (let raw of code) {
-    let line = raw.trim();
-    if (!line) continue;
+  for (let l of lines) {
+    l = l.trim();
+    if (!l) continue;
 
-    if (line.startsWith("create.label")) {
-      const name = line.split(" ")[1];
-      if (name) vars[name] = { type: "label", text: "" };
+    if (l.startsWith("create.label")) {
+      let name = l.split(" ")[1];
+      if (name) vars[name] = { text: "" };
     }
 
-    if (line.includes(".text")) {
-      const [l, r] = line.split("=");
-      if (!l || !r) continue;
+    if (l.includes(".text")) {
+      let [a, b] = l.split("=");
+      if (!a || !b) continue;
 
-      const obj = l.split(".")[0].trim();
-      if (!vars[obj]) vars[obj] = { type: "label", text: "" };
+      let obj = a.split(".")[0].trim();
+      if (!vars[obj]) vars[obj] = { text: "" };
 
-      vars[obj].text = r.replace(/"/g, "").trim();
+      vars[obj].text = b.replace(/"/g, "").trim();
     }
   }
 
   Object.values(vars).forEach(v => {
-    const el = document.createElement("div");
-    el.innerText = v.text || "";
-    el.style.padding = "8px";
-    el.style.margin = "6px 0";
-    el.style.background = "rgba(0,255,136,0.1)";
-    el.style.borderRadius = "8px";
-    output.appendChild(el);
+    let d = document.createElement("div");
+    d.innerText = v.text;
+    d.style.padding = "6px";
+    d.style.margin = "5px 0";
+    d.style.background = "#0f172a";
+    out.appendChild(d);
   });
 }
 
-/* ---------- EDITOR LIVE SYNC ---------- */
-document.getElementById("editor").addEventListener("input", () => {
-  if (currentFile) {
-    files[currentFile] = document.getElementById("editor").value;
+/* ---------- CMD PALETTE ---------- */
+function toggleCmd() {
+  let c = document.getElementById("cmd");
+  c.style.display = c.style.display === "flex" ? "none" : "flex";
+}
+
+function cmdEnter(e) {
+  if (e.key === "Enter") {
+    let v = e.target.value;
+
+    if (v === "run") run();
+    if (v === "save") save();
+    if (v === "new") newFile();
+
+    e.target.value = "";
+    toggleCmd();
   }
+}
+
+/* ---------- EDITOR SYNC ---------- */
+document.getElementById("editor").addEventListener("input", e => {
+  files[current] = e.target.value;
 });
 
 /* ---------- INIT ---------- */
-renderFiles();
-renderTabs();
-syncEditor();
+render();
+sync();
 </script>
 
 </body>
