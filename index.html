@@ -1,283 +1,251 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>Caden Playground Pro</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Caden 6.2 Playground</title>
 
 <style>
-:root {
-    --bg: #0b0e14;
-    --panel: #111827;
-    --accent: #00ff88;
-    --text: #e6edf3;
-}
-
-/* Layout */
 body {
-    margin: 0;
-    font-family: system-ui, monospace;
-    background: radial-gradient(circle at top, #111827, #0b0e14);
-    color: var(--text);
-    display: flex;
-    height: 100vh;
+  margin: 0;
+  display: flex;
+  height: 100vh;
+  font-family: Arial;
+  background: #0f0f1a;
+  color: white;
 }
 
-/* Sidebar */
-.sidebar {
-    width: 220px;
-    background: linear-gradient(180deg, #111827, #0b0e14);
-    border-right: 1px solid #222;
-    padding: 10px;
+#editor {
+  width: 50%;
+  background: #1e1e2f;
+  color: #fff;
+  border: none;
+  padding: 15px;
+  font-family: monospace;
+  font-size: 14px;
 }
 
-.file {
-    padding: 12px;
-    margin-bottom: 6px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: 0.2s;
+#right {
+  width: 50%;
+  display: flex;
+  flex-direction: column;
 }
 
-.file:hover {
-    background: rgba(0,255,136,0.1);
+#toolbar {
+  padding: 10px;
+  background: #151525;
+  border-bottom: 1px solid #333;
 }
 
-.file.active {
-    background: var(--accent);
-    color: black;
-    font-weight: bold;
-}
-
-/* Editor */
-.editor {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-}
-
-.topbar {
-    padding: 10px;
-    background: #161b22;
-    display: flex;
-    gap: 10px;
-    border-bottom: 1px solid #222;
-}
-
-/* Buttons */
 button {
-    background: linear-gradient(135deg, #00ff88, #00c46a);
-    border: none;
-    padding: 8px 14px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: bold;
-    box-shadow: 0 4px 12px rgba(0,255,136,0.3);
-    transition: 0.2s;
+  padding: 8px 12px;
+  background: #0078ff;
+  border: none;
+  color: white;
+  cursor: pointer;
+  border-radius: 6px;
 }
 
-button:hover {
-    transform: scale(1.05);
+#preview {
+  flex: 1;
+  position: relative;
+  background: #0f0f1a;
 }
-
-/* Code area */
-textarea {
-    flex: 1;
-    background: #0d1117;
-    color: #00ff88;
-    border: none;
-    padding: 15px;
-    font-size: 14px;
-    outline: none;
+.ui {
+  position: absolute;
 }
-
-/* Output */
-.output {
-    height: 150px;
-    background: #010409;
-    border-top: 1px solid #222;
-    padding: 10px;
-    overflow-y: auto;
-    border-radius: 12px 12px 0 0;
+.button {
+  background: #0078ff;
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
 }
-
-/* Tips panel */
-.tips {
-    width: 260px;
-    background: linear-gradient(180deg, #0f172a, #020617);
-    border-left: 1px solid #222;
-    padding: 15px;
-    font-size: 13px;
-}
-
-.tips h3 {
-    color: var(--accent);
+.input {
+  background: #222;
+  padding: 10px;
+  border-radius: 6px;
 }
 </style>
 </head>
 
 <body>
 
-<!-- FILES -->
-<div class="sidebar">
-    <div class="file active" onclick="openFile('main', this)">main.cdn</div>
-    <div class="file" onclick="openFile('guess', this)">guess.cdn</div>
-</div>
+<textarea id="editor">
+scene main
 
-<!-- EDITOR -->
-<div class="editor">
-    <div class="topbar">
-        <button onclick="run()">Run</button>
-        <button onclick="reset()">Reset</button>
-    </div>
+create.label title
+title.text = "Caden 6.2 Playground"
+title.x = 200
+title.y = 50
 
-    <textarea id="code"></textarea>
-    <div class="output" id="out"></div>
-</div>
+create.input input
+input.x = 200
+input.y = 150
 
-<!-- TIPS -->
-<div class="tips">
-    <h3>Tips</h3>
-    <ul>
-        <li>set x to 5</li>
-        <li>say x</li>
-        <li>ask "?" into name</li>
-        <li>if x is 5</li>
-    </ul>
+create.button btn
+btn.text = "Double"
+btn.x = 200
+btn.y = 220
+
+create.label result
+result.x = 200
+result.y = 300
+
+on click btn
+value = input * 2
+result.text = "Result: {value}"
+end
+
+end
+</textarea>
+
+<div id="right">
+  <div id="toolbar">
+    <button onclick="run()">Run</button>
+  </div>
+  <div id="preview"></div>
 </div>
 
 <script>
-/* ---------------- FILE SYSTEM ---------------- */
-const files = {
-    main: `set name to "Caden"
-say "Welcome!"
-say name`,
-
-    guess: `set secret to 5
-say "Guess a number"
-ask "Your guess?" into g
-say g`
-};
-
-let currentFile = "main";
-const editor = document.getElementById("code");
-const out = document.getElementById("out");
-
-/* ---------------- FIXED TAB SWITCH ---------------- */
-function openFile(name, el) {
-    currentFile = name;
-    editor.value = files[name];
-
-    document.querySelectorAll(".file").forEach(f => f.classList.remove("active"));
-    el.classList.add("active");
-}
-
-/* ---------------- SAFETY FILTER ---------------- */
-function scanCode(code) {
-    const blocked = [/18\+/i, /nsfw/i, /porn/i];
-    for (let r of blocked) {
-        if (r.test(code)) {
-            return { status: "block", msg: "Blocked unsafe content" };
-        }
-    }
-    return { status: "ok" };
-}
-
-/* ---------------- CADEN ENGINE ---------------- */
-class Caden {
-    constructor() {
-        this.vars = {};
-        this.output = "";
-    }
-
-    log(t) {
-        this.output += t + "\n";
-    }
-
-    parse(v) {
-        v = v.trim();
-
-        if (!isNaN(v)) return Number(v);
-
-        if (v.startsWith('"') && v.endsWith('"')) {
-            return v.slice(1, -1);
-        }
-
-        return this.vars[v] ?? v;
-    }
-
-    run(code) {
-        this.output = "";
-        const lines = code.split("\n");
-
-        for (let i = 0; i < lines.length; i++) {
-            let line = lines[i].trim();
-            if (!line) continue;
-
-            let parts = line.split(" ");
-
-            if (parts[0] === "set") {
-                this.vars[parts[1]] = this.parse(line.split("to")[1]);
-                continue;
-            }
-
-            if (parts[0] === "say") {
-                this.log(this.parse(line.slice(4)));
-                continue;
-            }
-
-            if (parts[0] === "ask") {
-                const q = line.split("ask")[1].split("into")[0];
-                const name = parts[parts.length - 1];
-                this.vars[name] = prompt(q);
-                continue;
-            }
-
-            if (parts[0] === "if") {
-                const left = this.parse(parts[1]);
-                const right = this.parse(parts[3]);
-
-                if (left === right) {
-                    i++;
-                    let next = lines[i].trim();
-                    if (next.startsWith("say")) {
-                        this.log(this.parse(next.slice(4)));
-                    }
-                } else {
-                    i++;
-                }
-                continue;
-            }
-
-            this.log("Error: " + line);
-        }
-
-        return this.output;
-    }
-}
-
-/* ---------------- RUN ---------------- */
 function run() {
-    const code = editor.value;
+  const code = document.getElementById("editor").value;
+  const preview = document.getElementById("preview");
+  preview.innerHTML = "";
 
-    const check = scanCode(code);
-    if (check.status === "block") {
-        out.textContent = "⛔ " + check.msg;
-        return;
+  let vars = {};
+  let ui = {};
+  let clickHandlers = {};
+
+  function format(text) {
+    return text.replace(/\{(.*?)\}/g, (_, v) => vars[v] ?? "");
+  }
+
+  function evalExpr(expr) {
+    try {
+      for (let k in vars) {
+        expr = expr.replaceAll(k, vars[k]);
+      }
+      return eval(expr);
+    } catch {
+      return expr;
+    }
+  }
+
+  const lines = code.split("\n").map(l => l.trim()).filter(l => l);
+  let i = 0;
+
+  while (i < lines.length) {
+    let l = lines[i];
+
+    if (l.startsWith("create.button")) {
+      let name = l.split(" ")[1];
+      ui[name] = { type:"button", x:100, y:100, text:name };
     }
 
-    const c = new Caden();
-    out.textContent = c.run(code);
-}
+    if (l.startsWith("create.label")) {
+      let name = l.split(" ")[1];
+      ui[name] = { type:"label", x:50, y:50, text:"" };
+    }
 
-/* ---------------- RESET ---------------- */
-function reset() {
-    editor.value = files[currentFile];
-    out.textContent = "";
-}
+    if (l.startsWith("create.input")) {
+      let name = l.split(" ")[1];
+      ui[name] = { type:"input", x:100, y:200, text:"" };
+    }
 
-/* INIT */
-editor.value = files.main;
+    if (l.includes("=")) {
+      let [left, right] = l.split("=");
+      left = left.trim();
+      right = right.trim();
+
+      let val;
+
+      if (right.startsWith('"')) {
+        val = format(right.replaceAll('"', ''));
+      } else {
+        val = evalExpr(right);
+      }
+
+      if (left.includes(".")) {
+        let [obj, prop] = left.split(".");
+        if (ui[obj]) ui[obj][prop] = val;
+      } else {
+        vars[left] = val;
+      }
+    }
+
+    if (l.startsWith("on click")) {
+      let name = l.split(" ")[2];
+      let body = [];
+      i++;
+      while (lines[i] !== "end") {
+        body.push(lines[i]);
+        i++;
+      }
+      clickHandlers[name] = body;
+    }
+
+    i++;
+  }
+
+  function exec(line) {
+    if (line.includes("=")) {
+      let [left, right] = line.split("=");
+      left = left.trim();
+      right = right.trim();
+
+      let val;
+
+      if (right.startsWith('"')) {
+        val = format(right.replaceAll('"',''));
+      } else {
+        val = evalExpr(right);
+      }
+
+      if (left.includes(".")) {
+        let [obj, prop] = left.split(".");
+        if (ui[obj]) ui[obj][prop] = val;
+      } else {
+        vars[left] = val;
+      }
+    }
+  }
+
+  // Render UI
+  for (let name in ui) {
+    let u = ui[name];
+    let el = document.createElement("div");
+    el.classList.add("ui");
+
+    el.style.left = u.x + "px";
+    el.style.top = u.y + "px";
+
+    if (u.type === "button") {
+      el.classList.add("button");
+      el.innerText = format(u.text);
+
+      el.onclick = () => {
+        (clickHandlers[name] || []).forEach(exec);
+        run(); // re-render
+      };
+    }
+
+    if (u.type === "label") {
+      el.innerText = format(u.text);
+    }
+
+    if (u.type === "input") {
+      let input = document.createElement("input");
+      input.classList.add("input");
+      input.value = u.text;
+
+      input.oninput = (e) => {
+        vars[name] = e.target.value;
+      };
+
+      el.appendChild(input);
+    }
+
+    preview.appendChild(el);
+  }
+}
 </script>
 
 </body>
