@@ -2,134 +2,92 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Caden Studio</title>
+<title>Caden IDE</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
+:root {
+  --bg: linear-gradient(135deg, #0b0e14, #0f172a);
+  --panel: rgba(20,25,40,0.85);
+  --border: rgba(255,255,255,0.08);
+  --accent: #00ff88;
+  --text: #e6edf3;
+}
+
 body {
   margin: 0;
-  height: 100vh;
   display: flex;
+  height: 100vh;
+  background: var(--bg);
+  color: var(--text);
   font-family: system-ui;
-  background: #0b0e14;
-  color: #e6edf3;
 }
 
-/* SIDEBAR */
+/* Sidebar */
 .sidebar {
   width: 240px;
-  background: #111827;
-  border-right: 1px solid #1f2937;
-  display: flex;
-  flex-direction: column;
-}
-
-.sidebar h3 {
-  padding: 10px;
-  margin: 0;
-  border-bottom: 1px solid #1f2937;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  padding: 15px;
+  backdrop-filter: blur(20px);
 }
 
 .file {
-  padding: 8px 10px;
+  padding: 10px;
+  border-radius: 8px;
   cursor: pointer;
 }
+.file:hover { background: rgba(255,255,255,0.05); }
 
-.file:hover {
-  background: #1f2937;
-}
+/* Main */
+.main { flex: 1; display: flex; flex-direction: column; }
 
-/* MAIN */
-.main {
-  flex: 1;
+.tabs {
   display: flex;
-  flex-direction: column;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+.tab {
+  padding: 10px 15px;
+  cursor: pointer;
+}
+.tab.active {
+  background: rgba(0,255,136,0.1);
 }
 
-/* TOPBAR */
 .topbar {
-  height: 40px;
   display: flex;
-  align-items: center;
   gap: 10px;
-  padding: 0 10px;
-  background: #111827;
-  border-bottom: 1px solid #1f2937;
+  padding: 10px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
 }
 
 button {
-  background: #22c55e;
+  background: linear-gradient(135deg, #00ff88, #00cfff);
   border: none;
-  padding: 6px 10px;
-  border-radius: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
   cursor: pointer;
 }
 
-/* TABS */
-.tabs {
-  display: flex;
-  background: #0f172a;
-  border-bottom: 1px solid #1f2937;
-  overflow-x: auto;
-}
-
-.tab {
-  padding: 8px 12px;
-  cursor: pointer;
-  border-right: 1px solid #1f2937;
-  white-space: nowrap;
-}
-
-.tab.active {
-  background: #1f2937;
-}
-
-/* EDITOR AREA */
-.content {
+/* Workspace */
+.workspace {
   flex: 1;
   display: flex;
 }
 
-textarea {
-  flex: 1;
-  background: #0d1117;
-  color: #fff;
-  border: none;
-  padding: 12px;
-  font-family: monospace;
-  outline: none;
+#editor {
+  width: 60%;
+  height: 100%;
 }
 
-/* OUTPUT */
 .output {
   width: 40%;
   background: #05080f;
-  border-left: 1px solid #1f2937;
+  border-left: 1px solid var(--border);
   padding: 10px;
   overflow: auto;
-}
-
-/* COMMAND PALETTE */
-/* BUG FIX 3: Added z-index so it renders above other elements */
-#cmd {
-  position: absolute;
-  top: 20%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 400px;
-  background: #111827;
-  border: 1px solid #374151;
-  display: none;
-  flex-direction: column;
-  z-index: 100;
-}
-
-#cmd input {
-  padding: 10px;
-  border: none;
-  outline: none;
-  background: #0b0e14;
-  color: white;
 }
 </style>
 </head>
@@ -137,172 +95,179 @@ textarea {
 <body>
 
 <div class="sidebar">
-  <h3>Explorer</h3>
-  <div id="files"></div>
+  <h3>Files</h3>
+  <div id="fileList"></div>
+  <div class="file" onclick="newFile()">+ New File</div>
 </div>
 
 <div class="main">
-
-  <div class="topbar">
-    <button onclick="run()">Run</button>
-    <button onclick="save()">Save</button>
-    <button onclick="newFile()">New</button>
-    <button onclick="toggleCmd()">Cmd</button>
-  </div>
-
   <div class="tabs" id="tabs"></div>
 
-  <div class="content">
-    <textarea id="editor"></textarea>
-    <div class="output" id="out">Output</div>
+  <div class="topbar">
+    <button onclick="runCode()">Run ▶</button>
+    <button onclick="saveFiles()">Save</button>
+    <button onclick="publish()">Publish</button>
+  </div>
+
+  <div class="workspace">
+    <div id="editor"></div>
+    <div class="output" id="output">Output...</div>
   </div>
 </div>
 
-<div id="cmd">
-  <input placeholder="Type command..." onkeydown="cmdEnter(event)">
-</div>
+<!-- Monaco CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
 
 <script>
-// BUG FIX 1: localStorage is not available in this environment.
-// Replaced with a plain in-memory object.
-let files = {
-  "main.cdn": `create.label title\ntitle.text = "Hello Caden Studio"`
-};
+let editor;
+let files = JSON.parse(localStorage.getItem("caden_files") || "{}");
 
-let current = Object.keys(files)[0];
-
-/* ---------- SAFE LOAD ---------- */
-function sync() {
-  document.getElementById("editor").value = files[current] || "";
+if (Object.keys(files).length === 0) {
+  files["main.cdn"] = `create.label title
+title.text = "Welcome to Caden IDE"`;
 }
 
-/* ---------- UI ---------- */
-function render() {
-  const f = document.getElementById("files");
-  const t = document.getElementById("tabs");
+let currentFile = Object.keys(files)[0];
 
-  f.innerHTML = "";
-  t.innerHTML = "";
+/* ---------- MONACO SETUP ---------- */
+require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
 
-  Object.keys(files).forEach(name => {
-    let d = document.createElement("div");
-    d.className = "file";
-    d.innerText = name;
-    // BUG FIX 2: Renamed open() → openFile() to avoid shadowing window.open()
-    d.onclick = () => openFile(name);
-    f.appendChild(d);
+require(['vs/editor/editor.main'], function () {
 
-    let tab = document.createElement("div");
-    tab.className = "tab" + (name === current ? " active" : "");
-    tab.innerText = name;
-    tab.onclick = () => openFile(name);
-    t.appendChild(tab);
-  });
-}
+  monaco.languages.register({ id: 'caden' });
 
-// BUG FIX 2: Renamed from open() to openFile()
-function openFile(name) {
-  if (!files[name] && files[name] !== "") return;
-  current = name;
-  sync();
-  render();
-}
-
-/* ---------- FILES ---------- */
-function newFile() {
-  let n = prompt("File name");
-  if (!n) return;
-  files[n] = "";
-  current = n;
-  render();
-  sync();
-}
-
-function save() {
-  files[current] = document.getElementById("editor").value;
-  // localStorage removed — data lives in the `files` object for this session
-}
-
-/* ---------- RUN ENGINE ---------- */
-function run() {
-  save();
-
-  const out = document.getElementById("out");
-  out.innerHTML = "";
-
-  if (!current || files[current] === undefined) return;
-
-  const lines = (files[current] || "").split("\n");
-  let vars = {};
-
-  for (let l of lines) {
-    l = l.trim();
-    if (!l) continue;
-
-    if (l.startsWith("create.label")) {
-      let name = l.split(" ")[1];
-      if (name) vars[name] = { text: "" };
+  monaco.languages.setMonarchTokensProvider('caden', {
+    tokenizer: {
+      root: [
+        [/create\.(button|label|input)/, "keyword"],
+        [/on click|scene|end|switch scene/, "keyword"],
+        [/set theme|animate\.move|open\.url/, "keyword"],
+        [/"[^"]*"/, "string"],
+        [/\d+/, "number"]
+      ]
     }
-
-    // BUG FIX 6: Tightened regex — only match `varname.text = ...`
-    // Previously l.includes(".text") matched any line containing ".text"
-    // (e.g. "create.textbox" would have been caught). Now we require
-    // the form  <identifier>.text = <value>  specifically.
-    const textAssign = l.match(/^(\w+)\.text\s*=\s*(.+)$/);
-    if (textAssign) {
-      let obj = textAssign[1];
-      let val = textAssign[2].replace(/"/g, "").trim();
-      if (!vars[obj]) vars[obj] = { text: "" };
-      vars[obj].text = val;
-    }
-  }
-
-  Object.values(vars).forEach(v => {
-    let d = document.createElement("div");
-    d.innerText = v.text;
-    d.style.padding = "6px";
-    d.style.margin = "5px 0";
-    d.style.background = "#0f172a";
-    out.appendChild(d);
   });
-}
 
-/* ---------- CMD PALETTE ---------- */
-function toggleCmd() {
-  let c = document.getElementById("cmd");
-  let isOpen = c.style.display === "flex";
-  c.style.display = isOpen ? "none" : "flex";
-  if (!isOpen) c.querySelector("input").focus();
-}
+  monaco.languages.registerCompletionItemProvider('caden', {
+    provideCompletionItems: () => {
+      return {
+        suggestions: [
+          { label: 'create.button', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'create.button ' },
+          { label: 'create.label', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'create.label ' },
+          { label: 'create.input', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'create.input ' },
+          { label: 'on click', kind: monaco.languages.CompletionItemKind.Snippet, insertText: 'on click name\n    \nend' },
+          { label: 'scene', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'scene main\n\nend' },
+          { label: 'animate.move', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'animate.move name to x y speed 0.1' }
+        ]
+      };
+    }
+  });
 
-function cmdEnter(e) {
-  // BUG FIX 5: Added Escape key to close the palette
-  if (e.key === "Escape") {
-    toggleCmd();
-    return;
-  }
+  editor = monaco.editor.create(document.getElementById('editor'), {
+    value: files[currentFile],
+    language: 'caden',
+    theme: 'vs-dark',
+    automaticLayout: true
+  });
 
-  if (e.key === "Enter") {
-    let v = e.target.value.trim();
-
-    if (v === "run") run();
-    if (v === "save") save();
-    // BUG FIX 4: Was calling open() (now openFile()), new command calls newFile()
-    if (v === "new") newFile();
-
-    e.target.value = "";
-    toggleCmd();
-  }
-}
-
-/* ---------- EDITOR SYNC ---------- */
-document.getElementById("editor").addEventListener("input", e => {
-  files[current] = e.target.value;
 });
 
-/* ---------- INIT ---------- */
-render();
-sync();
+/* ---------- FILE SYSTEM ---------- */
+function renderFiles() {
+  const list = document.getElementById("fileList");
+  list.innerHTML = "";
+  Object.keys(files).forEach(name => {
+    let el = document.createElement("div");
+    el.className = "file";
+    el.innerText = name;
+    el.onclick = () => openFile(name);
+    list.appendChild(el);
+  });
+}
+
+function renderTabs() {
+  const tabs = document.getElementById("tabs");
+  tabs.innerHTML = "";
+  Object.keys(files).forEach(name => {
+    let tab = document.createElement("div");
+    tab.className = "tab " + (name === currentFile ? "active" : "");
+    tab.innerText = name;
+    tab.onclick = () => openFile(name);
+    tabs.appendChild(tab);
+  });
+}
+
+function openFile(name) {
+  currentFile = name;
+  editor.setValue(files[name]);
+  renderTabs();
+}
+
+function newFile() {
+  let name = prompt("File name");
+  if (!name) return;
+  files[name] = "";
+  openFile(name);
+  renderFiles();
+}
+
+function saveFiles() {
+  files[currentFile] = editor.getValue();
+  localStorage.setItem("caden_files", JSON.stringify(files));
+}
+
+/* ---------- SHARE ---------- */
+function publish() {
+  saveFiles();
+  const data = btoa(JSON.stringify(files));
+  const url = location.origin + location.pathname + "?code=" + data;
+  prompt("Share this link:", url);
+}
+
+/* Load shared */
+const params = new URLSearchParams(location.search);
+if (params.get("code")) {
+  files = JSON.parse(atob(params.get("code")));
+}
+
+/* ---------- RUN ---------- */
+function runCode() {
+  saveFiles();
+  const output = document.getElementById("output");
+  output.innerHTML = "";
+
+  let vars = {};
+  let code = editor.getValue().split("\n");
+
+  code.forEach(line => {
+    line = line.trim();
+
+    if (line.startsWith("create.label")) {
+      let name = line.split(" ")[1];
+      vars[name] = { text: "" };
+    }
+
+    if (line.includes(".text")) {
+      let [l, r] = line.split("=");
+      let obj = l.split(".")[0].trim();
+      vars[obj].text = r.replace(/"/g, "").trim();
+    }
+  });
+
+  for (let k in vars) {
+    let el = document.createElement("div");
+    el.innerText = vars[k].text;
+    el.style.padding = "8px";
+    el.style.margin = "6px 0";
+    el.style.background = "rgba(0,255,136,0.1)";
+    el.style.borderRadius = "8px";
+    output.appendChild(el);
+  }
+}
+
+/* INIT */
+renderFiles();
+renderTabs();
 </script>
 
 </body>
