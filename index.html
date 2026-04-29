@@ -1,251 +1,184 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>Caden 6.2 Playground</title>
+<meta charset="UTF-8">
+<title>Caden Playground</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-body {
-  margin: 0;
-  display: flex;
-  height: 100vh;
-  font-family: Arial;
-  background: #0f0f1a;
-  color: white;
+:root {
+  --bg: #0b0e14;
+  --panel: #111826;
+  --accent: #00ff88;
+  --text: #fff;
 }
 
-#editor {
-  width: 50%;
-  background: #1e1e2f;
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui;
+  display: flex;
+  height: 100vh;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 220px;
+  background: var(--panel);
+  padding: 15px;
+  border-right: 1px solid #222;
+}
+
+.file {
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.file:hover {
+  background: #1c2433;
+}
+
+/* Main */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Top bar */
+.topbar {
+  background: var(--panel);
+  padding: 10px;
+  display: flex;
+  gap: 10px;
+  border-bottom: 1px solid #222;
+}
+
+button {
+  background: var(--accent);
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* Editor + Output */
+.workspace {
+  flex: 1;
+  display: flex;
+}
+
+textarea {
+  flex: 1;
+  background: #0d1117;
   color: #fff;
   border: none;
   padding: 15px;
   font-family: monospace;
   font-size: 14px;
+  outline: none;
 }
 
-#right {
-  width: 50%;
-  display: flex;
-  flex-direction: column;
-}
-
-#toolbar {
+.output {
+  width: 40%;
+  background: #05080f;
   padding: 10px;
-  background: #151525;
-  border-bottom: 1px solid #333;
-}
-
-button {
-  padding: 8px 12px;
-  background: #0078ff;
-  border: none;
-  color: white;
-  cursor: pointer;
-  border-radius: 6px;
-}
-
-#preview {
-  flex: 1;
-  position: relative;
-  background: #0f0f1a;
-}
-.ui {
-  position: absolute;
-}
-.button {
-  background: #0078ff;
-  padding: 10px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-.input {
-  background: #222;
-  padding: 10px;
-  border-radius: 6px;
+  border-left: 1px solid #222;
+  overflow: auto;
 }
 </style>
 </head>
 
 <body>
 
-<textarea id="editor">
-scene main
+<!-- Sidebar -->
+<div class="sidebar">
+  <h3>Files</h3>
+  <div class="file" onclick="loadFile('main')">main.cdn</div>
+  <div class="file" onclick="newFile()">+ New File</div>
+</div>
 
-create.label title
-title.text = "Caden 6.2 Playground"
-title.x = 200
-title.y = 50
+<!-- Main -->
+<div class="main">
 
-create.input input
-input.x = 200
-input.y = 150
-
-create.button btn
-btn.text = "Double"
-btn.x = 200
-btn.y = 220
-
-create.label result
-result.x = 200
-result.y = 300
-
-on click btn
-value = input * 2
-result.text = "Result: {value}"
-end
-
-end
-</textarea>
-
-<div id="right">
-  <div id="toolbar">
-    <button onclick="run()">Run</button>
+  <div class="topbar">
+    <button onclick="runCode()">Run ▶</button>
+    <button onclick="saveFile()">Save 💾</button>
   </div>
-  <div id="preview"></div>
+
+  <div class="workspace">
+    <textarea id="editor"></textarea>
+    <div class="output" id="output">Output will appear here...</div>
+  </div>
+
 </div>
 
 <script>
-function run() {
+let files = {
+  "main": `scene main
+
+create.label title
+title.text = "Hello from Caden!"
+
+end`
+};
+
+let currentFile = "main";
+
+function loadFile(name) {
+  currentFile = name;
+  document.getElementById("editor").value = files[name];
+}
+
+function newFile() {
+  const name = prompt("File name:");
+  if (!name) return;
+  files[name] = "";
+  loadFile(name);
+}
+
+function saveFile() {
+  files[currentFile] = document.getElementById("editor").value;
+  alert("Saved!");
+}
+
+/* SIMPLE INTERPRETER (browser version) */
+function runCode() {
   const code = document.getElementById("editor").value;
-  const preview = document.getElementById("preview");
-  preview.innerHTML = "";
+  const output = document.getElementById("output");
+  output.innerHTML = "";
 
   let vars = {};
-  let ui = {};
-  let clickHandlers = {};
 
-  function format(text) {
-    return text.replace(/\{(.*?)\}/g, (_, v) => vars[v] ?? "");
-  }
+  code.split("\n").forEach(line => {
+    line = line.trim();
 
-  function evalExpr(expr) {
-    try {
-      for (let k in vars) {
-        expr = expr.replaceAll(k, vars[k]);
-      }
-      return eval(expr);
-    } catch {
-      return expr;
-    }
-  }
-
-  const lines = code.split("\n").map(l => l.trim()).filter(l => l);
-  let i = 0;
-
-  while (i < lines.length) {
-    let l = lines[i];
-
-    if (l.startsWith("create.button")) {
-      let name = l.split(" ")[1];
-      ui[name] = { type:"button", x:100, y:100, text:name };
+    if (line.startsWith("create.label")) {
+      let name = line.split(" ")[1];
+      vars[name] = { type: "label", text: "" };
     }
 
-    if (l.startsWith("create.label")) {
-      let name = l.split(" ")[1];
-      ui[name] = { type:"label", x:50, y:50, text:"" };
-    }
-
-    if (l.startsWith("create.input")) {
-      let name = l.split(" ")[1];
-      ui[name] = { type:"input", x:100, y:200, text:"" };
-    }
-
-    if (l.includes("=")) {
-      let [left, right] = l.split("=");
-      left = left.trim();
-      right = right.trim();
-
-      let val;
-
-      if (right.startsWith('"')) {
-        val = format(right.replaceAll('"', ''));
-      } else {
-        val = evalExpr(right);
-      }
-
-      if (left.includes(".")) {
-        let [obj, prop] = left.split(".");
-        if (ui[obj]) ui[obj][prop] = val;
-      } else {
-        vars[left] = val;
-      }
-    }
-
-    if (l.startsWith("on click")) {
-      let name = l.split(" ")[2];
-      let body = [];
-      i++;
-      while (lines[i] !== "end") {
-        body.push(lines[i]);
-        i++;
-      }
-      clickHandlers[name] = body;
-    }
-
-    i++;
-  }
-
-  function exec(line) {
-    if (line.includes("=")) {
+    else if (line.includes(".text")) {
       let [left, right] = line.split("=");
-      left = left.trim();
-      right = right.trim();
-
-      let val;
-
-      if (right.startsWith('"')) {
-        val = format(right.replaceAll('"',''));
-      } else {
-        val = evalExpr(right);
-      }
-
-      if (left.includes(".")) {
-        let [obj, prop] = left.split(".");
-        if (ui[obj]) ui[obj][prop] = val;
-      } else {
-        vars[left] = val;
-      }
+      let obj = left.split(".")[0].trim();
+      vars[obj].text = right.replace(/"/g, "").trim();
     }
-  }
+  });
 
-  // Render UI
-  for (let name in ui) {
-    let u = ui[name];
-    let el = document.createElement("div");
-    el.classList.add("ui");
-
-    el.style.left = u.x + "px";
-    el.style.top = u.y + "px";
-
-    if (u.type === "button") {
-      el.classList.add("button");
-      el.innerText = format(u.text);
-
-      el.onclick = () => {
-        (clickHandlers[name] || []).forEach(exec);
-        run(); // re-render
-      };
+  // render
+  for (let k in vars) {
+    if (vars[k].type === "label") {
+      let el = document.createElement("div");
+      el.innerText = vars[k].text;
+      output.appendChild(el);
     }
-
-    if (u.type === "label") {
-      el.innerText = format(u.text);
-    }
-
-    if (u.type === "input") {
-      let input = document.createElement("input");
-      input.classList.add("input");
-      input.value = u.text;
-
-      input.oninput = (e) => {
-        vars[name] = e.target.value;
-      };
-
-      el.appendChild(input);
-    }
-
-    preview.appendChild(el);
   }
 }
+
+// load default
+loadFile("main");
 </script>
 
 </body>
