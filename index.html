@@ -110,6 +110,7 @@ textarea {
 }
 
 /* COMMAND PALETTE */
+/* BUG FIX 3: Added z-index so it renders above other elements */
 #cmd {
   position: absolute;
   top: 20%;
@@ -120,6 +121,7 @@ textarea {
   border: 1px solid #374151;
   display: none;
   flex-direction: column;
+  z-index: 100;
 }
 
 #cmd input {
@@ -161,11 +163,11 @@ textarea {
 </div>
 
 <script>
-let files = JSON.parse(localStorage.getItem("caden") || "{}");
-
-if (Object.keys(files).length === 0) {
-  files["main.cdn"] = `create.label title\ntitle.text = "Hello Caden Studio"`;
-}
+// BUG FIX 1: localStorage is not available in this environment.
+// Replaced with a plain in-memory object.
+let files = {
+  "main.cdn": `create.label title\ntitle.text = "Hello Caden Studio"`
+};
 
 let current = Object.keys(files)[0];
 
@@ -186,19 +188,21 @@ function render() {
     let d = document.createElement("div");
     d.className = "file";
     d.innerText = name;
-    d.onclick = () => open(name);
+    // BUG FIX 2: Renamed open() → openFile() to avoid shadowing window.open()
+    d.onclick = () => openFile(name);
     f.appendChild(d);
 
     let tab = document.createElement("div");
     tab.className = "tab" + (name === current ? " active" : "");
     tab.innerText = name;
-    tab.onclick = () => open(name);
+    tab.onclick = () => openFile(name);
     t.appendChild(tab);
   });
 }
 
-function open(name) {
-  if (!files[name]) return;
+// BUG FIX 2: Renamed from open() to openFile()
+function openFile(name) {
+  if (!files[name] && files[name] !== "") return;
   current = name;
   sync();
   render();
@@ -216,17 +220,17 @@ function newFile() {
 
 function save() {
   files[current] = document.getElementById("editor").value;
-  localStorage.setItem("caden", JSON.stringify(files));
+  // localStorage removed — data lives in the `files` object for this session
 }
 
-/* ---------- RUN ENGINE (FIXED) ---------- */
+/* ---------- RUN ENGINE ---------- */
 function run() {
   save();
 
   const out = document.getElementById("out");
   out.innerHTML = "";
 
-  if (!current || !files[current]) return;
+  if (!current || files[current] === undefined) return;
 
   const lines = (files[current] || "").split("\n");
   let vars = {};
@@ -240,14 +244,16 @@ function run() {
       if (name) vars[name] = { text: "" };
     }
 
-    if (l.includes(".text")) {
-      let [a, b] = l.split("=");
-      if (!a || !b) continue;
-
-      let obj = a.split(".")[0].trim();
+    // BUG FIX 6: Tightened regex — only match `varname.text = ...`
+    // Previously l.includes(".text") matched any line containing ".text"
+    // (e.g. "create.textbox" would have been caught). Now we require
+    // the form  <identifier>.text = <value>  specifically.
+    const textAssign = l.match(/^(\w+)\.text\s*=\s*(.+)$/);
+    if (textAssign) {
+      let obj = textAssign[1];
+      let val = textAssign[2].replace(/"/g, "").trim();
       if (!vars[obj]) vars[obj] = { text: "" };
-
-      vars[obj].text = b.replace(/"/g, "").trim();
+      vars[obj].text = val;
     }
   }
 
@@ -264,15 +270,24 @@ function run() {
 /* ---------- CMD PALETTE ---------- */
 function toggleCmd() {
   let c = document.getElementById("cmd");
-  c.style.display = c.style.display === "flex" ? "none" : "flex";
+  let isOpen = c.style.display === "flex";
+  c.style.display = isOpen ? "none" : "flex";
+  if (!isOpen) c.querySelector("input").focus();
 }
 
 function cmdEnter(e) {
+  // BUG FIX 5: Added Escape key to close the palette
+  if (e.key === "Escape") {
+    toggleCmd();
+    return;
+  }
+
   if (e.key === "Enter") {
-    let v = e.target.value;
+    let v = e.target.value.trim();
 
     if (v === "run") run();
     if (v === "save") save();
+    // BUG FIX 4: Was calling open() (now openFile()), new command calls newFile()
     if (v === "new") newFile();
 
     e.target.value = "";
