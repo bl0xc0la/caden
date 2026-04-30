@@ -3,27 +3,116 @@
 <head>
 <meta charset="UTF-8">
 <title>Caden 6.1 Physics Playground</title>
+
 <style>
-/* Keeping your beautiful CSS exactly the same */
-:root { --bg-dark: #0b0e14; --bg-sidebar: #161b22; --accent: #00ff88; --accent-glow: rgba(0, 255, 136, 0.3); --border: #30363d; --text-muted: #8b949e; }
-body { margin: 0; display: flex; height: 100vh; background-color: var(--bg-dark); color: white; font-family: 'Inter', sans-serif; overflow: hidden; }
-.sidebar { width: 240px; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
-.sidebar-header { padding: 20px; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); }
-#files { flex: 1; padding: 10px; overflow-y: auto; }
-.file { padding: 10px 15px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; color: #c9d1d9; display: flex; align-items: center; }
+:root {
+    --bg-dark: #0b0e14;
+    --bg-sidebar: #161b22;
+    --accent: #00ff88;
+    --accent-glow: rgba(0, 255, 136, 0.3);
+    --border: #30363d;
+    --text-muted: #8b949e;
+}
+
+body {
+    margin: 0;
+    display: flex;
+    height: 100vh;
+    background-color: var(--bg-dark);
+    color: white;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 240px;
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-header {
+    padding: 20px;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+}
+
+#files {
+    flex: 1;
+    padding: 10px;
+    overflow-y: auto;
+}
+
+.file {
+    padding: 10px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: #c9d1d9;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+}
+
 .file.active { background: rgba(0,255,136,0.1); color: var(--accent); }
-.new-file-btn { margin: 10px; padding: 10px; border: 1px dashed var(--border); border-radius: 6px; text-align: center; cursor: pointer; color: var(--text-muted); }
+
+.new-file-btn {
+    margin: 10px;
+    padding: 10px;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+/* Main Area */
 .main { flex: 1; display: flex; flex-direction: column; }
-.topbar { height: 50px; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; background: var(--bg-sidebar); border-bottom: 1px solid var(--border); }
+
+.topbar {
+    height: 50px;
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-sidebar);
+    border-bottom: 1px solid var(--border);
+}
+
 .logo { font-weight: 800; color: var(--accent); letter-spacing: 1px; }
-button { background: #21262d; border: 1px solid var(--border); color: white; padding: 6px 16px; border-radius: 6px; cursor: pointer; }
-button.run-btn { background: var(--accent); color: #0d1117; border: none; }
+
+.controls { display: flex; gap: 10px; }
+
+button {
+    background: #21262d;
+    border: 1px solid var(--border);
+    color: white;
+    padding: 6px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+button.run-btn {
+    background: var(--accent);
+    color: #0d1117;
+    border: none;
+}
+
+/* Editor & Output */
 .workspace { flex: 1; display: flex; }
 #editor { width: 55%; height: 100%; border-right: 1px solid var(--border); }
 .output-container { width: 45%; display: flex; flex-direction: column; background: #000; }
 #output { flex: 1; position: relative; overflow: hidden; background: radial-gradient(circle at center, #0d1117 0%, #000 100%); }
 </style>
 </head>
+
 <body>
 
 <div class="sidebar">
@@ -40,6 +129,7 @@ button.run-btn { background: var(--accent); color: #0d1117; border: none; }
             <button class="run-btn" onclick="runCode()">Run ▶</button>
         </div>
     </div>
+
     <div class="workspace">
         <div id="editor"></div>
         <div class="output-container">
@@ -49,6 +139,7 @@ button.run-btn { background: var(--accent); color: #0d1117; border: none; }
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+
 <script>
 let editor;
 let files = {"game.cdn": `set gravity = 0.7
@@ -68,6 +159,8 @@ end`};
 
 let currentFile = "game.cdn";
 let keys = {};
+
+// Keyboard Listeners
 window.addEventListener("keydown", (e) => keys[e.code.toLowerCase()] = true);
 window.addEventListener("keyup", (e) => keys[e.code.toLowerCase()] = false);
 
@@ -75,17 +168,36 @@ require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-edi
 require(['vs/editor/editor.main'], function () {
     monaco.languages.register({ id: 'caden' });
     monaco.languages.setMonarchTokensProvider('caden', {
-        tokenizer: { root: [[/set|create\.object|loop|if|end|jump|apply_gravity|collide|key/, "keyword"], [/"[^"]*"/, "string"], [/\d+/, "number"]] }
+        tokenizer: {
+            root: [
+                [/set|create\.object|loop|if|end|jump|apply_gravity|collide|key/, "keyword"],
+                [/"[^"]*"/, "string"],
+                [/\d+/, "number"],
+            ]
+        }
     });
-    monaco.editor.defineTheme('caden-theme', { base: 'vs-dark', inherit: true, rules: [{ token: 'keyword', foreground: '00ff88', fontStyle: 'bold' }], colors: { 'editor.background': '#0b0e14' }});
-    editor = monaco.editor.create(document.getElementById("editor"), { value: files[currentFile], language: "caden", theme: "caden-theme", automaticLayout: true });
+
+    monaco.editor.defineTheme('caden-theme', {
+        base: 'vs-dark',
+        inherit: true,
+        rules: [{ token: 'keyword', foreground: '00ff88', fontStyle: 'bold' }],
+        colors: { 'editor.background': '#0b0e14' }
+    });
+
+    editor = monaco.editor.create(document.getElementById("editor"), {
+        value: files[currentFile],
+        language: "caden",
+        theme: "caden-theme",
+        automaticLayout: true
+    });
 });
 
-/* ---------- NEW PHYSICS ENGINE ---------- */
+/* ---------- UPGRADED ENGINE ---------- */
 let animationId = null;
 
 function runCode() {
     if (animationId) cancelAnimationFrame(animationId);
+    
     const output = document.getElementById("output");
     output.innerHTML = "";
 
@@ -95,7 +207,8 @@ function runCode() {
     let inLoop = false;
 
     // 1. Parser
-    editor.getValue().split("\n").forEach(line => {
+    const code = editor.getValue().split("\n");
+    code.forEach(line => {
         line = line.trim();
         if (!line || line.startsWith("//")) return;
 
@@ -106,10 +219,14 @@ function runCode() {
             let m = line.match(/create\.object (\w+) = "(.*)"/);
             if (m) {
                 let d = document.createElement("div");
-                d.style.position = "absolute"; d.style.color = "#00ff88"; d.style.fontWeight = "bold";
+                d.style.position = "absolute"; 
+                d.style.color = "#00ff88"; 
+                d.style.fontWeight = "bold";
+                d.style.fontSize = "2rem";
                 d.innerText = m[2];
                 output.appendChild(d);
-                objects[m[1]] = { el: d, x: 100, y: 100, vy: 0, width: 50, height: 20 };
+                objects[m[1]] = { el: d, x: 100, y: 100, vy: 0 };
+                // Basic ground placement
                 if(m[1] === "ground") { objects[m[1]].y = 350; objects[m[1]].x = 50; }
             }
         } else if (line === "loop") { inLoop = true; }
@@ -117,50 +234,54 @@ function runCode() {
         else if (inLoop) { loopBlock.push(line); }
     });
 
-    // 2. Execution Loop
+    // 2. Execution Loop (Physics + Logic)
     function mainLoop() {
         loopBlock.forEach(line => {
-            // Key Check
+            // Jump Trigger
             if (line.startsWith("if key \"space\"")) {
                 if (keys["space"]) {
-                    let nextLine = loopBlock[loopBlock.indexOf(line) + 1];
-                    if (nextLine && nextLine.includes("jump")) {
-                        let parts = nextLine.trim().split(" ");
-                        if (objects[parts[0]] && objects[parts[0]].vy === 0) 
-                            objects[parts[0]].vy = -vars[parts[2]] || -14;
+                    // Peek at next line for the action
+                    let actionLine = loopBlock[loopBlock.indexOf(line) + 1];
+                    if (actionLine && actionLine.includes("jump")) {
+                        let parts = actionLine.trim().split(" ");
+                        let obj = objects[parts[0]];
+                        if (obj && obj.vy === 0) obj.vy = -(vars[parts[2]] || 14);
                     }
                 }
             }
-            // Gravity
+            
+            // Gravity Application
             if (line.includes("apply_gravity")) {
                 let name = line.split(" ")[0];
-                if (objects[name]) objects[name].vy += vars["gravity"] || 0.7;
+                if (objects[name]) objects[name].vy += (vars["gravity"] || 0.7);
             }
-            // Collision
+
+            // Collision Detection
             if (line.includes("collide")) {
                 let [subj, _, target] = line.split(" ");
                 if (objects[subj] && objects[target]) {
-                    if (objects[subj].y + 20 >= objects[target].y) {
-                        objects[subj].y = objects[target].y - 20;
+                    if (objects[subj].y + 30 >= objects[target].y) {
+                        objects[subj].y = objects[target].y - 30;
                         objects[subj].vy = 0;
                     }
                 }
             }
         });
 
-        // Update visuals
+        // Update positions
         Object.values(objects).forEach(o => {
             o.y += o.vy || 0;
             o.el.style.top = o.y + "px";
             o.el.style.left = o.x + "px";
         });
+
         animationId = requestAnimationFrame(mainLoop);
     }
     mainLoop();
 }
 
-function renderFiles() { /* same as your old renderFiles */ }
 function save() { files[currentFile] = editor.getValue(); }
+function newFile() { /* simplified for brevity */ }
 </script>
 </body>
 </html>
