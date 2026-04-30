@@ -2,15 +2,14 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Caden 6.1 Physics Playground</title>
+<title>Caden 7.0 Engine Sync</title>
 
 <style>
 :root {
-    --bg-dark: #0b0e14;
-    --bg-sidebar: #161b22;
-    --accent: #00ff88;
-    --accent-glow: rgba(0, 255, 136, 0.3);
-    --border: #30363d;
+    --bg-dark: #0a0f19;
+    --bg-sidebar: #121822;
+    --accent: #32e3a2;
+    --border: #2a3241;
     --text-muted: #8b949e;
 }
 
@@ -25,91 +24,26 @@ body {
 }
 
 /* Sidebar */
-.sidebar {
-    width: 240px;
-    background: var(--bg-sidebar);
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-}
-
-.sidebar-header {
-    padding: 20px;
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--text-muted);
-    border-bottom: 1px solid var(--border);
-}
-
-#files {
-    flex: 1;
-    padding: 10px;
-    overflow-y: auto;
-}
-
-.file {
-    padding: 10px 15px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    color: #c9d1d9;
-    transition: 0.2s;
-    display: flex;
-    align-items: center;
-}
-
-.file.active { background: rgba(0,255,136,0.1); color: var(--accent); }
-
-.new-file-btn {
-    margin: 10px;
-    padding: 10px;
-    border: 1px dashed var(--border);
-    border-radius: 6px;
-    text-align: center;
-    cursor: pointer;
-    font-size: 0.85rem;
-    color: var(--text-muted);
-}
+.sidebar { width: 240px; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+.sidebar-header { padding: 20px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+#files { flex: 1; padding: 10px; overflow-y: auto; }
+.file { padding: 10px 15px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; color: #c9d1d9; display: flex; align-items: center; }
+.file.active { background: rgba(50,227,162,0.1); color: var(--accent); }
 
 /* Main Area */
 .main { flex: 1; display: flex; flex-direction: column; }
-
-.topbar {
-    height: 50px;
-    padding: 0 20px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--bg-sidebar);
-    border-bottom: 1px solid var(--border);
-}
-
+.topbar { height: 50px; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; background: var(--bg-sidebar); border-bottom: 1px solid var(--border); }
 .logo { font-weight: 800; color: var(--accent); letter-spacing: 1px; }
-
 .controls { display: flex; gap: 10px; }
 
-button {
-    background: #21262d;
-    border: 1px solid var(--border);
-    color: white;
-    padding: 6px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
-}
-
-button.run-btn {
-    background: var(--accent);
-    color: #0d1117;
-    border: none;
-}
+button { background: #21262d; border: 1px solid var(--border); color: white; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+button.run-btn { background: var(--accent); color: #0a0f19; border: none; }
 
 /* Editor & Output */
 .workspace { flex: 1; display: flex; }
 #editor { width: 55%; height: 100%; border-right: 1px solid var(--border); }
-.output-container { width: 45%; display: flex; flex-direction: column; background: #000; }
-#output { flex: 1; position: relative; overflow: hidden; background: radial-gradient(circle at center, #0d1117 0%, #000 100%); }
+.output-container { width: 45%; display: flex; flex-direction: column; background: #0a0f19; }
+#output { flex: 1; position: relative; overflow: hidden; }
 </style>
 </head>
 
@@ -117,19 +51,16 @@ button.run-btn {
 
 <div class="sidebar">
     <div class="sidebar-header">Explorer</div>
-    <div id="files"></div>
-    <div class="new-file-btn" onclick="newFile()">+ New Caden File</div>
+    <div id="files"><div class="file active">game.cdn</div></div>
 </div>
 
 <div class="main">
     <div class="topbar">
-        <div class="logo">CADEN 6.1</div>
+        <div class="logo">CADEN 7.0 (PYGAME SYNC)</div>
         <div class="controls">
-            <button onclick="save()">Save</button>
-            <button class="run-btn" onclick="runCode()">Run ▶</button>
+            <button class="run-btn" onclick="runCode()">Run Engine ▶</button>
         </div>
     </div>
-
     <div class="workspace">
         <div id="editor"></div>
         <div class="output-container">
@@ -143,26 +74,59 @@ button.run-btn {
 <script>
 let editor;
 let files = {"game.cdn": `set gravity = 0.7
-set jump_force = 14
+set speed = 5
+set score = 0
 
-create.object player = "P"
-create.object ground = "__________"
+create object player
+player.x = 50
+player.y = 50
+player.color = "#32e3a2"
+
+create object ground
+ground.x = 0
+ground.y = 350
+ground.w = 800
+ground.h = 50
+ground.color = "#2a3241"
+
+create ui.text label = "Score: {score}"
+label.x = 20
+label.y = 20
+label.color = "#ffffff"
+
+create ui.button btn = "Point +1"
+btn.x = 200
+btn.y = 15
+
+on click btn
+  set score = score + 1
+end
 
 loop
-  if key "space"
-    player jump jump_force
+  if key == "right"
+    move player right speed
   end
   
-  player apply_gravity
-  player collide ground
+  if key == "left"
+    move player left speed
+  end
+  
+  if key == "space"
+    jump player 14
+  end
+  
+  apply gravity player gravity
+  collide player ground
+  keep in window player
 end`};
 
 let currentFile = "game.cdn";
 let keys = {};
 
-// Keyboard Listeners
-window.addEventListener("keydown", (e) => keys[e.code.toLowerCase()] = true);
-window.addEventListener("keyup", (e) => keys[e.code.toLowerCase()] = false);
+// JS Keyboard Mapper
+const keyMap = { "arrowleft": "left", "arrowright": "right", "arrowup": "up", "arrowdown": "down", " ": "space" };
+window.addEventListener("keydown", (e) => { keys[keyMap[e.key.toLowerCase()] || e.key.toLowerCase()] = true; });
+window.addEventListener("keyup", (e) => { keys[keyMap[e.key.toLowerCase()] || e.key.toLowerCase()] = false; });
 
 require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' }});
 require(['vs/editor/editor.main'], function () {
@@ -170,7 +134,7 @@ require(['vs/editor/editor.main'], function () {
     monaco.languages.setMonarchTokensProvider('caden', {
         tokenizer: {
             root: [
-                [/set|create\.object|loop|if|end|jump|apply_gravity|collide|key/, "keyword"],
+                [/set|create(\.ui)?\.?(object|text|button|input|label)|on click|on submit|loop|if|end|move|apply gravity|jump|collide|keep in window/, "keyword"],
                 [/"[^"]*"/, "string"],
                 [/\d+/, "number"],
             ]
@@ -178,110 +142,233 @@ require(['vs/editor/editor.main'], function () {
     });
 
     monaco.editor.defineTheme('caden-theme', {
-        base: 'vs-dark',
-        inherit: true,
-        rules: [{ token: 'keyword', foreground: '00ff88', fontStyle: 'bold' }],
-        colors: { 'editor.background': '#0b0e14' }
+        base: 'vs-dark', inherit: true,
+        rules: [{ token: 'keyword', foreground: '32e3a2', fontStyle: 'bold' }],
+        colors: { 'editor.background': '#0a0f19' }
     });
 
     editor = monaco.editor.create(document.getElementById("editor"), {
-        value: files[currentFile],
-        language: "caden",
-        theme: "caden-theme",
-        automaticLayout: true
+        value: files[currentFile], language: "caden", theme: "caden-theme", automaticLayout: true
     });
 });
 
-/* ---------- UPGRADED ENGINE ---------- */
+/* ---------- CADEN JS PARSER (PYGAME SYNCED) ---------- */
 let animationId = null;
 
 function runCode() {
     if (animationId) cancelAnimationFrame(animationId);
-    
     const output = document.getElementById("output");
     output.innerHTML = "";
 
     let vars = {};
     let objects = {};
-    let loopBlock = [];
-    let inLoop = false;
+    let click_handlers = {};
+    let loop_block = [];
 
-    // 1. Parser
-    const code = editor.getValue().split("\n");
-    code.forEach(line => {
-        line = line.trim();
-        if (!line || line.startsWith("//")) return;
+    // Helper: Parse Values exactly like Python
+    function parseValue(val) {
+        val = String(val).trim();
+        val = val.replace(/\{(.*?)\}/g, (_, k) => vars[k.trim()] !== undefined ? vars[k.trim()] : "");
+        
+        if (val.startsWith('"') && val.endsWith('"')) return val.slice(1, -1);
+        if (/^-?\d+$/.test(val)) return parseInt(val);
+        if (/^-?\d+\.\d+$/.test(val)) return parseFloat(val);
+        if (val.includes("+")) {
+            let sum = 0;
+            val.split("+").forEach(p => { p = p.trim(); sum += parseFloat(vars[p] !== undefined ? vars[p] : p) || 0; });
+            return sum;
+        }
+        return vars[val] !== undefined ? vars[val] : val;
+    }
 
-        if (line.startsWith("set ")) {
-            let [n, v] = line.replace("set ", "").split("=");
-            vars[n.trim()] = parseFloat(v);
-        } else if (line.startsWith("create.object")) {
-            let m = line.match(/create\.object (\w+) = "(.*)"/);
-            if (m) {
-                let d = document.createElement("div");
-                d.style.position = "absolute"; 
-                d.style.color = "#00ff88"; 
-                d.style.fontWeight = "bold";
-                d.style.fontSize = "2rem";
-                d.innerText = m[2];
-                output.appendChild(d);
-                objects[m[1]] = { el: d, x: 100, y: 100, vy: 0 };
-                // Basic ground placement
-                if(m[1] === "ground") { objects[m[1]].y = 350; objects[m[1]].x = 50; }
+    const lines = editor.getValue().split("\n").map(l => l.trim()).filter(l => l && !l.startsWith("#"));
+
+    // Block Reader (Recursive Support)
+    function readBlock(arr, start) {
+        let body = [];
+        let depth = 0;
+        let i = start;
+        while(i < arr.length) {
+            let line = arr[i];
+            if (line.startsWith("if ") || line === "loop") depth++;
+            if (line === "end") {
+                if (depth === 0) return { body, next: i + 1 };
+                depth--;
             }
-        } else if (line === "loop") { inLoop = true; }
-        else if (line === "end") { inLoop = false; }
-        else if (inLoop) { loopBlock.push(line); }
-    });
+            body.push(line);
+            i++;
+        }
+        return { body, next: i };
+    }
 
-    // 2. Execution Loop (Physics + Logic)
+    // Phase 1: Parse Structure
+    let idx = 0;
+    while (idx < lines.length) {
+        let line = lines[idx];
+        if (line.startsWith("on click ")) {
+            let name = line.split(" ")[2];
+            let res = readBlock(lines, idx + 1);
+            click_handlers[name] = res.body;
+            idx = res.next;
+            continue;
+        }
+        if (line === "loop") {
+            let res = readBlock(lines, idx + 1);
+            loop_block = res.body;
+            break;
+        }
+        exec(line);
+        idx++;
+    }
+
+    // Element Factory
+    function createEl(type, name, textVal) {
+        let el = document.createElement(type === 'button' ? 'button' : 'div');
+        el.style.position = "absolute";
+        output.appendChild(el);
+        
+        let obj = { el, type, x: 0, y: 0, w: 50, h: 50, text: textVal || "", color: "" };
+        if (type === "button") { 
+            obj.w = 120; obj.h = 40; obj.color = "#3264c8"; 
+            el.style.color = "white"; el.style.border = "none"; el.style.borderRadius = "8px"; el.style.cursor = "pointer";
+            el.onclick = () => runBlock(click_handlers[name] || []);
+        }
+        if (type === "object") obj.color = "#32e3a2";
+        if (type === "text") { el.style.color = "white"; el.style.fontSize = "24px"; el.style.fontWeight = "bold"; }
+        
+        objects[name] = obj;
+        updateEl(name);
+    }
+
+    function updateEl(name) {
+        let obj = objects[name];
+        if (!obj) return;
+        obj.el.style.left = obj.x + "px";
+        obj.el.style.top = obj.y + "px";
+        if (obj.type !== 'text') {
+            obj.el.style.width = obj.w + "px";
+            obj.el.style.height = obj.h + "px";
+            if (obj.color) obj.el.style.backgroundColor = obj.color;
+        }
+        if (obj.type === 'text' || obj.type === 'button') {
+            let t = obj.text.replace(/\{(.*?)\}/g, (_, k) => vars[k.trim()] !== undefined ? vars[k.trim()] : "");
+            if (obj.el.innerText !== t) obj.el.innerText = t;
+        }
+    }
+
+    // Line Executor
+    function exec(line) {
+        if (line.startsWith("create object ") || line.startsWith("create.object ")) return createEl("object", line.split(" ").pop());
+        if (line.startsWith("create ui.button ") || line.startsWith("create.button ")) return createEl("button", line.split(" ").pop());
+        if (line.startsWith("create ui.text ") || line.startsWith("create.ui.text ")) {
+            let match = line.match(/create(?:\.| )ui\.text (\w+)(?: = "(.*)")?/);
+            if (match) createEl("text", match[1], match[2] || "");
+            return;
+        }
+        
+        // Property / Variable Assignment
+        if (line.includes("=") && !line.startsWith("if ") && !line.startsWith("on ")) {
+            let parts = line.split("=");
+            let left = parts[0].trim();
+            if (left.startsWith("set ")) left = left.substring(4).trim();
+            let right = parseValue(parts.slice(1).join("="));
+
+            if (left.includes(".")) {
+                let [name, prop] = left.split(".");
+                if (objects[name]) { objects[name][prop] = right; updateEl(name); }
+            } else { vars[left] = right; }
+            return;
+        }
+
+        // Engine Actions
+        if (line.startsWith("move ")) {
+            let [_, name, dir, speed] = line.split(" ");
+            speed = parseValue(speed);
+            if (objects[name]) {
+                if (dir === "left") objects[name].x -= speed;
+                if (dir === "right") objects[name].x += speed;
+                if (dir === "up") objects[name].y -= speed;
+                if (dir === "down") objects[name].y += speed;
+            }
+            return;
+        }
+        if (line.startsWith("apply gravity ")) {
+            let [_, __, name, grav] = line.split(" ");
+            let obj = objects[name];
+            if (obj) {
+                obj.vy = (obj.vy || 0) + parseValue(grav);
+                obj.y += obj.vy;
+                obj.grounded = false;
+            }
+            return;
+        }
+        if (line.startsWith("jump ")) {
+            let [_, name, strength] = line.split(" ");
+            let obj = objects[name];
+            if (obj && obj.grounded) { obj.vy = -parseValue(strength); obj.grounded = false; }
+            return;
+        }
+        if (line.startsWith("collide ")) {
+            let [_, name, plat] = line.split(" ");
+            let obj = objects[name]; let p = objects[plat];
+            if (obj && p) {
+                let touching = obj.x < p.x + p.w && obj.x + obj.w > p.x && obj.y < p.y + p.h && obj.y + obj.h > p.y;
+                if (touching && (obj.vy || 0) >= 0 && (obj.y + obj.h - obj.vy) <= p.y + 4) {
+                    obj.y = p.y - obj.h; obj.vy = 0; obj.grounded = true;
+                }
+            }
+            return;
+        }
+        if (line.startsWith("keep in window ")) {
+            let name = line.split(" ")[3];
+            let obj = objects[name];
+            if (obj) {
+                let w = output.clientWidth; let h = output.clientHeight;
+                if (obj.x < 0) obj.x = 0;
+                if (obj.x + obj.w > w) obj.x = w - obj.w;
+                if (obj.y > h) { obj.x = 50; obj.y = 50; obj.vy = 0; }
+            }
+        }
+    }
+
+    // Block Runner (For Loops & Events)
+    function runBlock(block) {
+        let k = 0;
+        while(k < block.length) {
+            let line = block[k];
+
+            if (line.startsWith("if key ==")) {
+                let keyName = line.split('"')[1].toLowerCase();
+                let res = readBlock(block, k + 1);
+                if (keys[keyName]) runBlock(res.body);
+                k = res.next;
+                continue;
+            }
+
+            if (line.startsWith("if touching ")) {
+                let [_, __, first, second] = line.split(" ");
+                let res = readBlock(block, k + 1);
+                let a = objects[first]; let b = objects[second];
+                if (a && b) {
+                    let touching = a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+                    if (touching) runBlock(res.body);
+                }
+                k = res.next;
+                continue;
+            }
+            exec(line);
+            k++;
+        }
+    }
+
+    // 60FPS Game Loop
     function mainLoop() {
-        loopBlock.forEach(line => {
-            // Jump Trigger
-            if (line.startsWith("if key \"space\"")) {
-                if (keys["space"]) {
-                    // Peek at next line for the action
-                    let actionLine = loopBlock[loopBlock.indexOf(line) + 1];
-                    if (actionLine && actionLine.includes("jump")) {
-                        let parts = actionLine.trim().split(" ");
-                        let obj = objects[parts[0]];
-                        if (obj && obj.vy === 0) obj.vy = -(vars[parts[2]] || 14);
-                    }
-                }
-            }
-            
-            // Gravity Application
-            if (line.includes("apply_gravity")) {
-                let name = line.split(" ")[0];
-                if (objects[name]) objects[name].vy += (vars["gravity"] || 0.7);
-            }
-
-            // Collision Detection
-            if (line.includes("collide")) {
-                let [subj, _, target] = line.split(" ");
-                if (objects[subj] && objects[target]) {
-                    if (objects[subj].y + 30 >= objects[target].y) {
-                        objects[subj].y = objects[target].y - 30;
-                        objects[subj].vy = 0;
-                    }
-                }
-            }
-        });
-
-        // Update positions
-        Object.values(objects).forEach(o => {
-            o.y += o.vy || 0;
-            o.el.style.top = o.y + "px";
-            o.el.style.left = o.x + "px";
-        });
-
+        runBlock(loop_block);
+        Object.keys(objects).forEach(updateEl);
         animationId = requestAnimationFrame(mainLoop);
     }
     mainLoop();
 }
-
-function save() { files[currentFile] = editor.getValue(); }
-function newFile() { /* simplified for brevity */ }
 </script>
 </body>
 </html>
