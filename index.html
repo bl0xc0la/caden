@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Caden 7.0 Engine Sync</title>
+<title>Caden 7.0 Engine (All-In-One)</title>
 
 <style>
 :root {
@@ -38,12 +38,13 @@ body {
 
 button { background: #21262d; border: 1px solid var(--border); color: white; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; }
 button.run-btn { background: var(--accent); color: #0a0f19; border: none; }
+button.run-btn:hover { opacity: 0.9; }
 
 /* Editor & Output */
 .workspace { flex: 1; display: flex; }
 #editor { width: 55%; height: 100%; border-right: 1px solid var(--border); }
-.output-container { width: 45%; display: flex; flex-direction: column; background: #0a0f19; }
-#output { flex: 1; position: relative; overflow: hidden; }
+.output-container { width: 45%; display: flex; flex-direction: column; background: #0a0f19; align-items: center; justify-content: center; }
+#output { width: 100%; height: 100%; position: relative; overflow: hidden; background: #0a0f19; }
 </style>
 </head>
 
@@ -51,12 +52,12 @@ button.run-btn { background: var(--accent); color: #0a0f19; border: none; }
 
 <div class="sidebar">
     <div class="sidebar-header">Explorer</div>
-    <div id="files"><div class="file active">game.cdn</div></div>
+    <div id="files"><div class="file active">demo.cdn</div></div>
 </div>
 
 <div class="main">
     <div class="topbar">
-        <div class="logo">CADEN 7.0 (PYGAME SYNC)</div>
+        <div class="logo">CADEN 7.0 PLAYGROUND</div>
         <div class="controls">
             <button class="run-btn" onclick="runCode()">Run Engine ▶</button>
         </div>
@@ -73,54 +74,68 @@ button.run-btn { background: var(--accent); color: #0a0f19; border: none; }
 
 <script>
 let editor;
-let files = {"game.cdn": `set gravity = 0.7
-set speed = 5
-set score = 0
+let files = {"demo.cdn": `set window.size = 600x500
 
+# ----- UI ELEMENTS -----
+create label title = "Super Caden 7.0 Demo"
+title.x = 20
+title.y = 20
+
+create input searchBox
+searchBox.x = 20
+searchBox.y = 60
+
+create ui.button goBtn = "Search Web"
+goBtn.x = 290
+goBtn.y = 60
+
+# ----- GAME OBJECTS -----
 create object player
 player.x = 50
-player.y = 50
+player.y = 200
 player.color = "#32e3a2"
 
 create object ground
 ground.x = 0
-ground.y = 350
-ground.w = 800
+ground.y = 450
+ground.w = 600
 ground.h = 50
 ground.color = "#2a3241"
 
-create ui.text label = "Score: {score}"
-label.x = 20
-label.y = 20
-label.color = "#ffffff"
-
-create ui.button btn = "Point +1"
-btn.x = 200
-btn.y = 15
-
-on click btn
-  set score = score + 1
+# ----- FUNCTIONS & EVENTS -----
+function executeSearch
+  open web "https://www.google.com/search?q={searchBox}"
 end
 
+on submit searchBox
+  run executeSearch
+end
+
+on click goBtn
+  run executeSearch
+end
+
+# ----- MAIN LOOP -----
 loop
+  # Use Arrow Keys & Spacebar!
   if key == "right"
-    move player right speed
+    move player right 6
   end
   
   if key == "left"
-    move player left speed
+    move player left 6
   end
   
   if key == "space"
-    jump player 14
+    jump player 12
   end
   
-  apply gravity player gravity
+  apply gravity player 0.6
   collide player ground
   keep in window player
 end`};
 
-let currentFile = "game.cdn";
+let currentFile = "demo.cdn";
 let keys = {};
 
 // JS Keyboard Mapper
@@ -134,16 +149,20 @@ require(['vs/editor/editor.main'], function () {
     monaco.languages.setMonarchTokensProvider('caden', {
         tokenizer: {
             root: [
-                [/set|create(\.ui)?\.?(object|text|button|input|label)|on click|on submit|loop|if|end|move|apply gravity|jump|collide|keep in window/, "keyword"],
+                [/set|create(\.ui)?\.?(object|text|button|input|label)|on click|on submit|loop|if|end|move|apply gravity|jump|collide|keep in window|function|run|open web/, "keyword"],
                 [/"[^"]*"/, "string"],
                 [/\d+/, "number"],
+                [/#.*/, "comment"],
             ]
         }
     });
 
     monaco.editor.defineTheme('caden-theme', {
         base: 'vs-dark', inherit: true,
-        rules: [{ token: 'keyword', foreground: '32e3a2', fontStyle: 'bold' }],
+        rules: [
+            { token: 'keyword', foreground: '32e3a2', fontStyle: 'bold' },
+            { token: 'comment', foreground: '6e7681', fontStyle: 'italic' }
+        ],
         colors: { 'editor.background': '#0a0f19' }
     });
 
@@ -152,17 +171,22 @@ require(['vs/editor/editor.main'], function () {
     });
 });
 
-/* ---------- CADEN JS PARSER (PYGAME SYNCED) ---------- */
+/* ---------- CADEN JS PARSER (FULL ENGINE) ---------- */
 let animationId = null;
 
 function runCode() {
     if (animationId) cancelAnimationFrame(animationId);
     const output = document.getElementById("output");
     output.innerHTML = "";
+    output.style.width = "100%"; 
+    output.style.height = "100%";
+    output.style.border = "none";
 
     let vars = {};
     let objects = {};
+    let functions = {};
     let click_handlers = {};
+    let submit_handlers = {};
     let loop_block = [];
 
     // Helper: Parse Values exactly like Python
@@ -205,12 +229,23 @@ function runCode() {
     let idx = 0;
     while (idx < lines.length) {
         let line = lines[idx];
+        if (line.startsWith("function ")) {
+            let name = line.split(" ")[1];
+            let res = readBlock(lines, idx + 1);
+            functions[name] = res.body;
+            idx = res.next; continue;
+        }
         if (line.startsWith("on click ")) {
             let name = line.split(" ")[2];
             let res = readBlock(lines, idx + 1);
             click_handlers[name] = res.body;
-            idx = res.next;
-            continue;
+            idx = res.next; continue;
+        }
+        if (line.startsWith("on submit ")) {
+            let name = line.split(" ")[2];
+            let res = readBlock(lines, idx + 1);
+            submit_handlers[name] = res.body;
+            idx = res.next; continue;
         }
         if (line === "loop") {
             let res = readBlock(lines, idx + 1);
@@ -223,18 +258,36 @@ function runCode() {
 
     // Element Factory
     function createEl(type, name, textVal) {
-        let el = document.createElement(type === 'button' ? 'button' : 'div');
+        let tag = 'div';
+        if (type === 'button') tag = 'button';
+        if (type === 'input') tag = 'input';
+        
+        let el = document.createElement(tag);
         el.style.position = "absolute";
         output.appendChild(el);
         
         let obj = { el, type, x: 0, y: 0, w: 50, h: 50, text: textVal || "", color: "" };
+        
         if (type === "button") { 
             obj.w = 120; obj.h = 40; obj.color = "#3264c8"; 
             el.style.color = "white"; el.style.border = "none"; el.style.borderRadius = "8px"; el.style.cursor = "pointer";
             el.onclick = () => runBlock(click_handlers[name] || []);
         }
+        if (type === "input") {
+            obj.w = 250; obj.h = 40; obj.color = "#1e2430";
+            el.style.color = "white"; el.style.border = "1px solid #2a3241"; el.style.borderRadius = "8px"; el.style.padding = "0 10px";
+            el.onkeyup = (e) => {
+                vars[name] = el.value; // Real-time variable update
+            };
+            el.onkeydown = (e) => {
+                if (e.key === "Enter") {
+                    vars[name] = el.value;
+                    runBlock(submit_handlers[name] || []);
+                }
+            };
+        }
         if (type === "object") obj.color = "#32e3a2";
-        if (type === "text") { el.style.color = "white"; el.style.fontSize = "24px"; el.style.fontWeight = "bold"; }
+        if (type === "text" || type === "label") { el.style.color = "white"; el.style.fontSize = "24px"; el.style.fontWeight = "bold"; }
         
         objects[name] = obj;
         updateEl(name);
@@ -245,12 +298,12 @@ function runCode() {
         if (!obj) return;
         obj.el.style.left = obj.x + "px";
         obj.el.style.top = obj.y + "px";
-        if (obj.type !== 'text') {
+        if (obj.type !== 'text' && obj.type !== 'label') {
             obj.el.style.width = obj.w + "px";
             obj.el.style.height = obj.h + "px";
             if (obj.color) obj.el.style.backgroundColor = obj.color;
         }
-        if (obj.type === 'text' || obj.type === 'button') {
+        if (obj.type === 'text' || obj.type === 'button' || obj.type === 'label') {
             let t = obj.text.replace(/\{(.*?)\}/g, (_, k) => vars[k.trim()] !== undefined ? vars[k.trim()] : "");
             if (obj.el.innerText !== t) obj.el.innerText = t;
         }
@@ -258,15 +311,37 @@ function runCode() {
 
     // Line Executor
     function exec(line) {
+        if (line === "show window") return;
+        
+        if (line.startsWith("set window.size =") || line.startsWith("set size to ")) {
+            let sizeStr = line.includes("=") ? line.split("=")[1].trim() : line.split(" ").pop();
+            let [w, h] = sizeStr.split("x");
+            output.style.width = w + "px"; output.style.height = h + "px";
+            output.style.border = "1px solid var(--border)";
+            return;
+        }
+
+        if (line.startsWith("open web ") || line.startsWith("open.web ")) {
+            let url = parseValue(line.split(" ").pop());
+            window.open(url, "_blank");
+            return;
+        }
+
+        if (line.startsWith("run ")) {
+            let funcName = line.split(" ")[1];
+            if (functions[funcName]) runBlock(functions[funcName]);
+            return;
+        }
+
         if (line.startsWith("create object ") || line.startsWith("create.object ")) return createEl("object", line.split(" ").pop());
         if (line.startsWith("create ui.button ") || line.startsWith("create.button ")) return createEl("button", line.split(" ").pop());
-        if (line.startsWith("create ui.text ") || line.startsWith("create.ui.text ")) {
-            let match = line.match(/create(?:\.| )ui\.text (\w+)(?: = "(.*)")?/);
+        if (line.startsWith("create input ") || line.startsWith("create.input ")) return createEl("input", line.split(" ").pop());
+        if (line.startsWith("create ui.text ") || line.startsWith("create label ")) {
+            let match = line.match(/create(?:\.| )(?:ui\.text|label) (\w+)(?: = "(.*)")?/);
             if (match) createEl("text", match[1], match[2] || "");
             return;
         }
         
-        // Property / Variable Assignment
         if (line.includes("=") && !line.startsWith("if ") && !line.startsWith("on ")) {
             let parts = line.split("=");
             let left = parts[0].trim();
@@ -340,7 +415,8 @@ function runCode() {
             if (line.startsWith("if key ==")) {
                 let keyName = line.split('"')[1].toLowerCase();
                 let res = readBlock(block, k + 1);
-                if (keys[keyName]) runBlock(res.body);
+                // Prevent character moving if typing in input box!
+                if (keys[keyName] && document.activeElement.tagName !== "INPUT") runBlock(res.body);
                 k = res.next;
                 continue;
             }
