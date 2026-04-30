@@ -1,39 +1,28 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>Caden IDE</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Caden 6.0</title>
 
 <style>
-:root {
-  --bg: linear-gradient(135deg, #0b0e14, #0f172a);
-  --panel: rgba(20,25,40,0.85);
-  --border: rgba(255,255,255,0.08);
-  --accent: #00ff88;
-  --text: #e6edf3;
-}
-
 body {
   margin: 0;
   display: flex;
   height: 100vh;
-  background: var(--bg);
-  color: var(--text);
+  background: linear-gradient(135deg,#0b0e14,#0f172a);
+  color: white;
   font-family: system-ui;
 }
 
 /* Sidebar */
 .sidebar {
-  width: 240px;
-  background: var(--panel);
-  border-right: 1px solid var(--border);
-  padding: 15px;
-  backdrop-filter: blur(20px);
+  width: 220px;
+  background: rgba(20,25,40,0.9);
+  padding: 10px;
 }
 
 .file {
-  padding: 10px;
+  padding: 8px;
   border-radius: 8px;
   cursor: pointer;
 }
@@ -42,52 +31,34 @@ body {
 /* Main */
 .main { flex: 1; display: flex; flex-direction: column; }
 
-.tabs {
-  display: flex;
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
-}
-.tab {
-  padding: 10px 15px;
-  cursor: pointer;
-}
-.tab.active {
-  background: rgba(0,255,136,0.1);
-}
+.tabs { display: flex; background: rgba(20,25,40,0.9); }
+.tab { padding: 10px; cursor: pointer; }
+.tab.active { background: rgba(0,255,136,0.1); }
 
 .topbar {
+  padding: 10px;
   display: flex;
   gap: 10px;
-  padding: 10px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
+  background: rgba(20,25,40,0.9);
 }
 
 button {
-  background: linear-gradient(135deg, #00ff88, #00cfff);
+  background: linear-gradient(135deg,#00ff88,#00cfff);
   border: none;
   padding: 8px 14px;
   border-radius: 8px;
   cursor: pointer;
 }
 
-/* Workspace */
-.workspace {
-  flex: 1;
-  display: flex;
-}
+.workspace { flex: 1; display: flex; }
 
-#editor {
-  width: 60%;
-  height: 100%;
-}
+#editor { width: 60%; height: 100%; }
 
-.output {
+#output {
   width: 40%;
+  position: relative;
   background: #05080f;
-  border-left: 1px solid var(--border);
-  padding: 10px;
-  overflow: auto;
+  overflow: hidden;
 }
 </style>
 </head>
@@ -96,42 +67,42 @@ button {
 
 <div class="sidebar">
   <h3>Files</h3>
-  <div id="fileList"></div>
+  <div id="files"></div>
   <div class="file" onclick="newFile()">+ New File</div>
 </div>
 
 <div class="main">
-  <div class="tabs" id="tabs"></div>
+  <div id="tabs" class="tabs"></div>
 
   <div class="topbar">
     <button onclick="runCode()">Run ▶</button>
-    <button onclick="saveFiles()">Save</button>
-    <button onclick="publish()">Publish</button>
+    <button onclick="save()">Save</button>
   </div>
 
   <div class="workspace">
     <div id="editor"></div>
-    <div class="output" id="output">Output...</div>
+    <div id="output"></div>
   </div>
 </div>
 
-<!-- Monaco CDN -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
 
 <script>
 let editor;
-let files = JSON.parse(localStorage.getItem("caden_files") || "{}");
+let files = {"main.cdn": `set score = 0
 
-if (Object.keys(files).length === 0) {
-  files["main.cdn"] = `create.label title
-title.text = "Welcome to Caden IDE"`;
-}
+create.ui.text button = "Click Me"
+create.ui.text label = "Score: {score}"
 
-let currentFile = Object.keys(files)[0];
+function.if mouseclick button
+  set score = score + 1
+  animation.move.up 50 button
+end`};
 
-/* ---------- MONACO SETUP ---------- */
-require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
+let currentFile = "main.cdn";
 
+/* ---------- MONACO ---------- */
+require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' }});
 require(['vs/editor/editor.main'], function () {
 
   monaco.languages.register({ id: 'caden' });
@@ -139,67 +110,52 @@ require(['vs/editor/editor.main'], function () {
   monaco.languages.setMonarchTokensProvider('caden', {
     tokenizer: {
       root: [
-        [/create\.(button|label|input)/, "keyword"],
-        [/on click|scene|end|switch scene/, "keyword"],
-        [/set theme|animate\.move|open\.url/, "keyword"],
+        [/create\.ui\.text/, "keyword"],
+        [/function\.if/, "keyword"],
+        [/animation\./, "keyword"],
+        [/set/, "keyword"],
         [/"[^"]*"/, "string"],
         [/\d+/, "number"]
       ]
     }
   });
 
-  monaco.languages.registerCompletionItemProvider('caden', {
-    provideCompletionItems: () => {
-      return {
-        suggestions: [
-          { label: 'create.button', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'create.button ' },
-          { label: 'create.label', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'create.label ' },
-          { label: 'create.input', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'create.input ' },
-          { label: 'on click', kind: monaco.languages.CompletionItemKind.Snippet, insertText: 'on click name\n    \nend' },
-          { label: 'scene', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'scene main\n\nend' },
-          { label: 'animate.move', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'animate.move name to x y speed 0.1' }
-        ]
-      };
-    }
-  });
-
-  editor = monaco.editor.create(document.getElementById('editor'), {
+  editor = monaco.editor.create(document.getElementById("editor"), {
     value: files[currentFile],
-    language: 'caden',
-    theme: 'vs-dark',
+    language: "caden",
+    theme: "vs-dark",
     automaticLayout: true
   });
-
 });
 
 /* ---------- FILE SYSTEM ---------- */
 function renderFiles() {
-  const list = document.getElementById("fileList");
-  list.innerHTML = "";
-  Object.keys(files).forEach(name => {
-    let el = document.createElement("div");
-    el.className = "file";
-    el.innerText = name;
-    el.onclick = () => openFile(name);
-    list.appendChild(el);
+  const el = document.getElementById("files");
+  el.innerHTML = "";
+  Object.keys(files).forEach(f => {
+    let d = document.createElement("div");
+    d.className = "file";
+    d.innerText = f;
+    d.onclick = () => openFile(f);
+    el.appendChild(d);
   });
 }
 
 function renderTabs() {
-  const tabs = document.getElementById("tabs");
-  tabs.innerHTML = "";
-  Object.keys(files).forEach(name => {
-    let tab = document.createElement("div");
-    tab.className = "tab " + (name === currentFile ? "active" : "");
-    tab.innerText = name;
-    tab.onclick = () => openFile(name);
-    tabs.appendChild(tab);
+  const el = document.getElementById("tabs");
+  el.innerHTML = "";
+  Object.keys(files).forEach(f => {
+    let d = document.createElement("div");
+    d.className = "tab " + (f===currentFile?"active":"");
+    d.innerText = f;
+    d.onclick = () => openFile(f);
+    el.appendChild(d);
   });
 }
 
-function openFile(name) {
-  currentFile = name;
-  editor.setValue(files[name]);
+function openFile(f) {
+  currentFile = f;
+  editor.setValue(files[f]);
   renderTabs();
 }
 
@@ -211,58 +167,124 @@ function newFile() {
   renderFiles();
 }
 
-function saveFiles() {
+function save() {
   files[currentFile] = editor.getValue();
-  localStorage.setItem("caden_files", JSON.stringify(files));
 }
 
-/* ---------- SHARE ---------- */
-function publish() {
-  saveFiles();
-  const data = btoa(JSON.stringify(files));
-  const url = location.origin + location.pathname + "?code=" + data;
-  prompt("Share this link:", url);
-}
-
-/* Load shared */
-const params = new URLSearchParams(location.search);
-if (params.get("code")) {
-  files = JSON.parse(atob(params.get("code")));
-}
-
-/* ---------- RUN ---------- */
+/* ---------- ENGINE ---------- */
 function runCode() {
-  saveFiles();
+  save();
+
   const output = document.getElementById("output");
   output.innerHTML = "";
 
+  const code = editor.getValue().split("\n");
+
+  let ui = {};
   let vars = {};
-  let code = editor.getValue().split("\n");
+  let handlers = {};
+  let animations = [];
+
+  let currentHandler = null;
 
   code.forEach(line => {
     line = line.trim();
+    if (!line) return;
 
-    if (line.startsWith("create.label")) {
-      let name = line.split(" ")[1];
-      vars[name] = { text: "" };
+    if (line.startsWith("set ")) {
+      let parts = line.split(" ");
+      let name = parts[1];
+      let value = parts.slice(3).join(" ");
+
+      if (value.includes("+")) {
+        let [a,b] = value.split("+");
+        vars[name] = (vars[a.trim()]||0) + Number(b.trim());
+      } else {
+        vars[name] = isNaN(value) ? value.replace(/"/g,"") : Number(value);
+      }
     }
 
-    if (line.includes(".text")) {
-      let [l, r] = line.split("=");
-      let obj = l.split(".")[0].trim();
-      vars[obj].text = r.replace(/"/g, "").trim();
+    else if (line.startsWith("create.ui.text")) {
+      let m = line.match(/create\.ui\.text (\w+) = "(.*)"/);
+      if (!m) return;
+      ui[m[1]] = {text:m[2],x:50,y:50,el:null};
+    }
+
+    else if (line.startsWith("function.if mouseclick")) {
+      currentHandler = line.split(" ")[2];
+      handlers[currentHandler] = [];
+      return;
+    }
+
+    else if (line==="end") {
+      currentHandler = null;
+      return;
+    }
+
+    else if (currentHandler) {
+      handlers[currentHandler].push(line);
     }
   });
 
-  for (let k in vars) {
-    let el = document.createElement("div");
-    el.innerText = vars[k].text;
-    el.style.padding = "8px";
-    el.style.margin = "6px 0";
-    el.style.background = "rgba(0,255,136,0.1)";
-    el.style.borderRadius = "8px";
-    output.appendChild(el);
+  Object.entries(ui).forEach(([name,obj])=>{
+    let d = document.createElement("div");
+
+    d.style.position="absolute";
+    d.style.padding="12px";
+    d.style.borderRadius="12px";
+    d.style.background="rgba(0,255,136,0.1)";
+    d.style.boxShadow="0 10px 30px rgba(0,0,0,0.3)";
+    d.style.cursor="pointer";
+
+    obj.el=d;
+
+    d.onclick=()=>{
+      (handlers[name]||[]).forEach(cmd=>{
+        if(cmd.startsWith("set ")){
+          let parts=cmd.split(" ");
+          let varName=parts[1];
+          vars[varName]=(vars[varName]||0)+1;
+        }
+
+        if(cmd.startsWith("animation.move.up")){
+          let parts=cmd.split(" ");
+          animations.push({
+            obj:name,
+            startY:ui[name].y,
+            targetY:ui[name].y-parseInt(parts[1]),
+            progress:0
+          });
+        }
+      });
+    };
+
+    output.appendChild(d);
+  });
+
+  function loop(){
+    animations.forEach(a=>{
+      a.progress+=0.05;
+      if(a.progress>1) a.progress=1;
+
+      let o=ui[a.obj];
+      o.y=a.startY+(a.targetY-a.startY)*a.progress;
+
+      if(a.progress===1) a.done=true;
+    });
+
+    animations=animations.filter(a=>!a.done);
+
+    Object.values(ui).forEach(o=>{
+      let text=o.text.replace(/\{(.*?)\}/g,(_,v)=>vars[v]??"");
+      o.el.innerText=text;
+      o.el.style.left=o.x+"px";
+      o.el.style.top=o.y+"px";
+    });
+
+    requestAnimationFrame(loop);
   }
+
+  loop();
 }
 
 /* INIT */
